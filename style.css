@@ -83,7 +83,7 @@ body {
   border: 1px solid #1e2d33;
   border-radius: 10px;
   padding: 10px 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -174,6 +174,78 @@ body {
 
 .bot-action-btn:hover {
   background: #10b981;
+}
+
+/* Captured Pieces Bar */
+.captured-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: #0c1519;
+  border-radius: 6px;
+  border: 1px solid #1a2830;
+  margin-bottom: 6px;
+  min-height: 32px;
+}
+
+.bottom-captured-bar {
+  margin-top: 6px;
+  margin-bottom: 8px;
+}
+
+.player-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.player-dot.white-dot {
+  background: #f8fafc;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+}
+
+.player-dot.black-dot {
+  background: #334155;
+  border: 1px solid #64748b;
+}
+
+.player-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.captured-pieces-list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  margin-left: 10px;
+  overflow-x: auto;
+}
+
+.captured-img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+}
+
+.material-advantage {
+  font-size: 12px;
+  font-weight: 800;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .main-grid {
@@ -653,6 +725,38 @@ body.wood-theme .black-3c85d {
 .badge-good { background: #166534; color: #bbf7d0; }
 .badge-best { background: #075985; color: #bae6fd; }
 
+/* Copy Analysis Button */
+.action-box {
+  text-align: center;
+  padding: 10px;
+}
+
+.copy-analysis-btn {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+}
+
+.copy-analysis-btn:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+}
+
+.copy-success-msg {
+  color: #4ade80;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
 .win-prob-bar {
   display: flex;
   height: 26px;
@@ -747,5 +851,9 @@ body.wood-theme .black-3c85d {
   }
   .quality-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+  .captured-img {
+    width: 18px;
+    height: 18px;
   }
 }

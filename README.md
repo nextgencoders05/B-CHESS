@@ -1,35 +1,30 @@
-# B Chess Analyzer — Sounds, Blunder & Mistake Detection, Game Rating
+# B Chess Analyzer — முழுமையான புதிய பதிப்பு (Fixed Blunders, Realistic Sounds & Captured Pieces)
 
-## New Features Added:
-1. **Interactive Audio System (Web Audio API)**:
-   - **Piece Move Sound**: Realistic wooden click sound on standard moves.
-   - **Capture Sound**: Crisp strike sound when a piece is captured.
-   - **Check Sound**: Audible chime alert on Check (+).
-   - **Checkmate Sound**: Triumphant musical chord arpeggio on Checkmate (#).
-   - **Sound Toggle**: Easy one-click mute/unmute button (`🔊 Sound: ON / OFF`) in the header bar.
+## இதில் சரிசெய்யப்பட்ட மற்றும் புதிதாக சேர்க்கப்பட்ட முக்கிய அம்சங்கள்:
 
-2. **Game Review, Blunders & Mistakes Detection (Chess.com Style)**:
-   - Tracks each move's centipawn evaluation before and after the move.
-   - Classifies each move:
-     - **★ Best** (Optimal Stockfish line)
-     - **✓ Good** (Solid playable move)
-     - **?! Inaccuracy** (Minor loss of advantage)
-     - **? Mistake** (Loss of advantage / tactical oversight)
-     - **?? Blunder** (Major game-turning mistake / hanging pieces)
-   - Live **Blunder & Mistake Counter** for both White and Black.
-   - Move history items display color-coded quality badges.
+1. **பிளண்டர் மற்றும் மிஸ்டேக் துல்லிய கணக்கீடு (Fixed Best Move Bug)**:
+   - முந்தைய பதிப்பில் என்ஜின் மதிப்பீடு வருவதற்கு முன்பே கணக்கிடப்பட்டதால் அனைத்து நகர்வுகளும் "Best" என்று காட்டிய பிழை சரிசெய்யப்பட்டது.
+   - இப்போது நீங்கள் செய்யும் ஒவ்வொரு நகர்வும் Stockfish-ன் Centipawn Loss கொண்டு துல்லியமாக கணக்கிடப்படுகிறது:
+     - **?? Blunder**: 200+ centipawns இழப்பு (பெரிய பிழைகள்).
+     - **? Mistake**: 90+ centipawns இழப்பு.
+     - **?! Inaccuracy**: 40+ centipawns இழப்பு.
+     - **✓ Good**: சாதாரண சரியான நகர்வு.
+     - **★ Best**: ஆகச்சிறந்த நகர்வு.
 
-3. **Game Performance Rating (Estimated Elo) & Accuracy %**:
-   - Calculates real-time **Move Accuracy %** (e.g. 85%, 92%) based on centipawn loss curves.
-   - Computes an **Estimated Game Performance Elo Rating** (e.g. ~1450 Elo, ~1820 Elo) based on how well you play throughout the game.
+2. **இயற்கையான மற்றும் சிறந்த சவுண்டுகள் (Enhanced Realistic Sounds)**:
+   - Piece Move: மரப்பலகையில் காய் வைக்கும் அசல் தட்டல் ஒலி (Wooden Resonant Tap).
+   - Capture: இரு காய்கள் மோதும் கூர்மையான ஒலி (Piece Clash / Strike).
+   - Check: செக் வைக்கும் போது தெளிவான எச்சரிக்கை மணி ஒலி (Tension Chime).
+   - Checkmate: செக்மேட் ஆகும் போது கம்பீரமான வெற்றிக் குரல் இசை (Triumphant Chord).
 
-4. **Preserved Features**:
-   - Mobile tap-to-move with green destination dots and red capture rings.
-   - Stockfish engine with evaluation bar & arrow guide.
-   - Gambit & opening detection.
-   - Play vs Bot with customizable ratings (800 to 2500+).
+3. **கேப்சர் செய்யப்பட்ட காய்கள் & லீடிங் பாயிண்ட்ஸ் (Captured Pieces Display)**:
+   - போர்டின் மேற்பகுதியிலும் கீழ்ப்பகுதியிலும் வெட்டப்பட்ட வெள்ளை மற்றும் கருப்பு காய்கள் தனித்தனியாக வரிசையாகக் காட்டப்படும்.
+   - பாயிண்ட்ஸ் மதிப்பு: Pawn = 1, Knight = 3, Bishop = 3, Rook = 5, Queen = 9.
+   - யார் எத்தனை பாயிண்ட் முன்னிலையில் உள்ளனர் (+1, +3, +5...) என்பதும் தானாகக் கணக்கிட்டுக் காட்டப்படும்.
 
-## How to Deploy to GitHub Pages:
-1. Extract this ZIP file.
-2. Upload `index.html`, `style.css`, `script.js` to your GitHub repository.
-3. Commit and refresh your live site after 1 minute!
+4. **அனாலிசிஸ் ரிப்போர்ட் காப்பி செய்யும் வசதி (Copy Full Analysis Report)**:
+   - "📋 Copy Full Analysis Report" பட்டனை அழுத்தி முழு கேம் அனாலிசிஸ், Accuracy, Elo ரேட்டிங், பிளண்டர் விவரங்கள் மற்றும் PGN-ஐ ஒரே கிளிக்கில் கிளிப்போர்டில் காப்பி செய்யலாம்.
+
+## பயன்பாட்டு முறை:
+1. இந்த ZIP ஃபைலை பதிவிறக்கி அன்சிப் செய்யவும்.
+2. `index.html`, `style.css`, `script.js` ஆகியவற்றை உங்கள் GitHub Repository-யில் அப்லோட் செய்யவும்.

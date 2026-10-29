@@ -1,4 +1,4 @@
-// B Chess Analyzer — Stockfish Engine + Audio FX + Game Review + Blunders/Mistakes + Rating
+// B Chess Analyzer — Stockfish Engine + Audio FX + Real-time Blunder Engine + Captured Pieces + Copy Report
 
 let board = null;
 const game = new Chess();
@@ -21,7 +21,7 @@ let playerColor = 'w';
 let botRating = 1400;
 let isBotThinking = false;
 
-// Audio Synthesizer (Using Web Audio API - zero external audio asset lag/failures)
+// Audio Synthesizer (Realistic Wooden Acoustic Multi-layered Audio)
 let audioCtx = null;
 
 function getAudioContext() {
@@ -37,92 +37,123 @@ function getAudioContext() {
   return audioCtx;
 }
 
-// Chess Sound Effects Generator
 function playSound(type) {
   if (!soundEnabled) return;
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
-
     const now = ctx.currentTime;
 
     if (type === 'move') {
-      // Natural wooden chess piece tap
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(260, now);
-      osc.frequency.exponentialRampToValueAtTime(70, now + 0.08);
+      // Realistic wooden board tap: dual resonant body + contact click
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      const gain2 = ctx.createGain();
 
-      gain.gain.setValueAtTime(0.7, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(320, now);
+      osc1.frequency.exponentialRampToValueAtTime(65, now + 0.07);
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.08);
+      gain1.gain.setValueAtTime(0.75, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(140, now);
+      osc2.frequency.exponentialRampToValueAtTime(45, now + 0.09);
+
+      gain2.gain.setValueAtTime(0.5, now);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+      osc1.connect(gain1);
+      osc2.connect(gain2);
+      gain1.connect(ctx.destination);
+      gain2.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.075);
+      osc2.stop(now + 0.095);
 
     } else if (type === 'capture') {
-      // Sharper capture strike
+      // Sharp wooden piece clash with impact crack
       const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const noise = ctx.createBufferSource();
+      const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.06, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < buffer.length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.015));
+      }
+      noise.buffer = buffer;
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.65, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(420, now);
-      osc.frequency.exponentialRampToValueAtTime(110, now + 0.11);
+      osc.frequency.setValueAtTime(480, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.1);
 
-      gain.gain.setValueAtTime(0.85, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.11);
+      const oscGain = ctx.createGain();
+      oscGain.gain.setValueAtTime(0.6, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+      noise.connect(noiseGain);
+      osc.connect(oscGain);
+      noiseGain.connect(ctx.destination);
+      oscGain.connect(ctx.destination);
+
+      noise.start(now);
       osc.start(now);
-      osc.stop(now + 0.11);
+      osc.stop(now + 0.1);
 
     } else if (type === 'check') {
-      // Alert chime for check
-      const freqs = [587.33, 880];
-      freqs.forEach((freq, i) => {
+      // Clear alert chime (Bell-like tension tone)
+      [659.25, 880].forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+        osc.frequency.setValueAtTime(freq, now + idx * 0.07);
 
-        gain.gain.setValueAtTime(0.4, now + i * 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.15);
+        gain.gain.setValueAtTime(0.45, now + idx * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.22);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start(now + i * 0.08);
-        osc.stop(now + i * 0.08 + 0.15);
+        osc.start(now + idx * 0.07);
+        osc.stop(now + idx * 0.07 + 0.23);
       });
 
     } else if (type === 'checkmate') {
-      // Dramatic checkmate chord (Arpeggio)
-      const chord = [392.00, 493.88, 587.33, 783.99]; // G Major
-      chord.forEach((freq, idx) => {
+      // Triumphant orchestral brass-like victory chord
+      const freqs = [392.00, 493.88, 587.33, 783.99, 987.77];
+      freqs.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
 
-        gain.gain.setValueAtTime(0.5, now + idx * 0.12);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.6);
+        gain.gain.setValueAtTime(0.5, now + idx * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.8);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start(now + idx * 0.12);
-        osc.stop(now + idx * 0.12 + 0.65);
+        osc.start(now + idx * 0.1);
+        osc.stop(now + idx * 0.1 + 0.85);
       });
     }
-  } catch (err) {
-    console.warn('Audio playback error:', err);
+  } catch (e) {
+    console.warn('Audio playback error:', e);
   }
 }
 
-// Game Review & Performance Elo Tracker
-let currentPositionCp = 0; // Perspective: White
-let moveQualityHistory = []; // { moveSan, color, cpBefore, cpAfter, centipawnLoss, quality }
+// Move Quality & Real-Time Blunder Analysis Engine
+// Each move stores { san, color, evalBefore, evalAfter, quality, loss }
+let moveQualityHistory = [];
+let pendingEvalMoveIndex = null;
+let currentPositionCp = 0; // Perspective: White (e.g. +120 = +1.20 pawns for White)
 
+// Bot profiles
 const BOT_PROFILES = {
   800:  { skill: 0,  depth: 1,  moveTime: 300, blunderRate: 0.35 },
   1100: { skill: 3,  depth: 2,  moveTime: 400, blunderRate: 0.18 },
@@ -283,20 +314,29 @@ function setupStockfishListeners() {
       }
 
       const turnMultiplier = game.turn() === 'w' ? 1 : -1;
+      let newScoreCp = 0;
 
       if (mateMatch) {
         const mateRaw = parseInt(mateMatch[1], 10) * turnMultiplier;
         const mateText = `M${Math.abs(mateRaw)}`;
         document.getElementById('evalScore').textContent = mateRaw > 0 ? `+${mateText}` : `-${mateText}`;
         updateEvalBar(mateRaw > 0 ? 10 : -10, mateText);
-        currentPositionCp = mateRaw > 0 ? 1000 : -1000;
+        newScoreCp = mateRaw > 0 ? 1500 : -1500;
       } else if (scoreMatch) {
         const cpWhite = (parseInt(scoreMatch[1], 10) * turnMultiplier) / 100;
-        currentPositionCp = parseInt(scoreMatch[1], 10) * turnMultiplier;
+        newScoreCp = parseInt(scoreMatch[1], 10) * turnMultiplier;
         const sign = cpWhite > 0 ? '+' : '';
         const formatted = `${sign}${cpWhite.toFixed(2)}`;
         document.getElementById('evalScore').textContent = formatted;
         updateEvalBar(cpWhite, `${sign}${cpWhite.toFixed(1)}`);
+      }
+
+      currentPositionCp = newScoreCp;
+
+      // RESOLVE MOVE QUALITY UPON RECEIVING REAL EVALUATION FROM ENGINE:
+      if (pendingEvalMoveIndex !== null && moveQualityHistory[pendingEvalMoveIndex]) {
+        resolveMoveQuality(pendingEvalMoveIndex, newScoreCp);
+        pendingEvalMoveIndex = null;
       }
     }
 
@@ -319,6 +359,43 @@ function setupStockfishListeners() {
       }
     }
   };
+}
+
+// Correct Centipawn Difference Calculation for Real Blunders & Mistakes
+function resolveMoveQuality(index, evalAfter) {
+  const item = moveQualityHistory[index];
+  if (!item) return;
+
+  item.evalAfter = evalAfter;
+  const evalBefore = item.evalBefore;
+
+  // For White: If eval dropped, loss = evalBefore - evalAfter
+  // For Black: If eval increased in White's favor, loss = evalAfter - evalBefore
+  let diff = 0;
+  if (item.color === 'w') {
+    diff = evalBefore - evalAfter;
+  } else {
+    diff = evalAfter - evalBefore;
+  }
+
+  let quality = 'good';
+  if (diff >= 200) {
+    quality = 'blunder';       // ?? Loss >= 2 pawns
+  } else if (diff >= 90) {
+    quality = 'mistake';       // ? Loss >= 0.9 pawns
+  } else if (diff >= 40) {
+    quality = 'inaccuracy';    // ?! Loss >= 0.4 pawns
+  } else if (diff <= 15) {
+    quality = 'best';          // ★ Optimal move / minimal drop
+  } else {
+    quality = 'good';          // ✓ Standard playable move
+  }
+
+  item.quality = quality;
+  item.loss = Math.max(0, diff);
+
+  updateGameReview();
+  renderMoveHistoryBadges();
 }
 
 function updateBestMoveDisplay(uci) {
@@ -481,11 +558,12 @@ function executeBotMove(uci) {
   const to = uci.slice(2, 4);
   const promotion = uci.length > 4 ? uci[4] : 'q';
 
-  recordMoveBeforeExecution();
+  const beforeEval = currentPositionCp;
   const move = game.move({ from, to, promotion });
   if (move) {
     redoStack = [];
     board.position(game.fen());
+    recordMoveQuality(move, beforeEval);
     handleMoveEffects(move);
     updateUI();
   }
@@ -527,7 +605,7 @@ function onDrop(source, target) {
   clearClickHighlights();
   selectedSquare = null;
 
-  recordMoveBeforeExecution();
+  const beforeEval = currentPositionCp;
   const move = game.move({
     from: source,
     to: target,
@@ -537,6 +615,7 @@ function onDrop(source, target) {
   if (move === null) return 'snapback';
 
   redoStack = [];
+  recordMoveQuality(move, beforeEval);
   handleMoveEffects(move);
   updateUI();
   checkBotTrigger();
@@ -564,7 +643,7 @@ function handleSquareClick(square) {
       return;
     }
 
-    recordMoveBeforeExecution();
+    const beforeEval = currentPositionCp;
     const move = game.move({
       from: selectedSquare,
       to: square,
@@ -577,6 +656,7 @@ function handleSquareClick(square) {
     if (move) {
       redoStack = [];
       board.position(game.fen());
+      recordMoveQuality(move, beforeEval);
       handleMoveEffects(move);
       updateUI();
       checkBotTrigger();
@@ -594,14 +674,20 @@ function handleSquareClick(square) {
   showLegalDestinations(square);
 }
 
-// Sound effects and blunder/move quality evaluation
-let lastEvalBeforeMove = 0;
-function recordMoveBeforeExecution() {
-  lastEvalBeforeMove = currentPositionCp;
+function recordMoveQuality(move, beforeEval) {
+  const newIndex = moveQualityHistory.length;
+  moveQualityHistory.push({
+    san: move.san,
+    color: move.color,
+    evalBefore: beforeEval,
+    evalAfter: beforeEval,
+    quality: '...', // Pending evaluation from Stockfish
+    loss: 0
+  });
+  pendingEvalMoveIndex = newIndex;
 }
 
 function handleMoveEffects(move) {
-  // Check sound triggers
   if (game.in_checkmate()) {
     playSound('checkmate');
   } else if (game.in_check()) {
@@ -611,37 +697,112 @@ function handleMoveEffects(move) {
   } else {
     playSound('move');
   }
+}
 
-  // Calculate move quality (Blunder, Mistake, Inaccuracy, Good, Best)
-  const movedColor = move.color;
-  // Estimate centipawn difference
-  // Centipawn loss = how much eval dropped for the player who made the move
-  let diff = 0;
-  if (movedColor === 'w') {
-    diff = lastEvalBeforeMove - currentPositionCp;
-  } else {
-    diff = currentPositionCp - lastEvalBeforeMove;
+// Captured Pieces Tracking & Material Score Calculation
+const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+const PIECE_IMAGES = {
+  w: {
+    p: 'https://chessboardjs.com/img/chesspieces/wikipedia/wP.png',
+    n: 'https://chessboardjs.com/img/chesspieces/wikipedia/wN.png',
+    b: 'https://chessboardjs.com/img/chesspieces/wikipedia/wB.png',
+    r: 'https://chessboardjs.com/img/chesspieces/wikipedia/wR.png',
+    q: 'https://chessboardjs.com/img/chesspieces/wikipedia/wQ.png'
+  },
+  b: {
+    p: 'https://chessboardjs.com/img/chesspieces/wikipedia/bP.png',
+    n: 'https://chessboardjs.com/img/chesspieces/wikipedia/bN.png',
+    b: 'https://chessboardjs.com/img/chesspieces/wikipedia/bB.png',
+    r: 'https://chessboardjs.com/img/chesspieces/wikipedia/bR.png',
+    q: 'https://chessboardjs.com/img/chesspieces/wikipedia/bQ.png'
+  }
+};
+
+function updateCapturedPiecesDisplay() {
+  const startingCounts = {
+    w: { p: 8, n: 2, b: 2, r: 2, q: 1 },
+    b: { p: 8, n: 2, b: 2, r: 2, q: 1 }
+  };
+
+  const currentBoard = game.board();
+  const currentCounts = {
+    w: { p: 0, n: 0, b: 0, r: 0, q: 0 },
+    b: { p: 0, n: 0, b: 0, r: 0, q: 0 }
+  };
+
+  let whiteMaterial = 0;
+  let blackMaterial = 0;
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = currentBoard[r][c];
+      if (piece && piece.type !== 'k') {
+        currentCounts[piece.color][piece.type]++;
+        if (piece.color === 'w') whiteMaterial += PIECE_VALUES[piece.type];
+        else blackMaterial += PIECE_VALUES[piece.type];
+      }
+    }
   }
 
-  let quality = 'good';
-  if (diff > 250) {
-    quality = 'blunder';
-  } else if (diff > 120) {
-    quality = 'mistake';
-  } else if (diff > 60) {
-    quality = 'inaccuracy';
-  } else if (diff < 15) {
-    quality = 'best';
-  }
-
-  moveQualityHistory.push({
-    san: move.san,
-    color: movedColor,
-    quality: quality,
-    loss: Math.max(0, diff)
+  // Pieces captured from Black (captured by White):
+  const capturedFromBlack = [];
+  ['q', 'r', 'b', 'n', 'p'].forEach(type => {
+    const diff = startingCounts.b[type] - currentCounts.b[type];
+    for (let i = 0; i < diff; i++) {
+      capturedFromBlack.push({ color: 'b', type: type });
+    }
   });
 
-  updateGameReview();
+  // Pieces captured from White (captured by Black):
+  const capturedFromWhite = [];
+  ['q', 'r', 'b', 'n', 'p'].forEach(type => {
+    const diff = startingCounts.w[type] - currentCounts.w[type];
+    for (let i = 0; i < diff; i++) {
+      capturedFromWhite.push({ color: 'w', type: type });
+    }
+  });
+
+  const diffMaterial = whiteMaterial - blackMaterial;
+  const isFlipped = board && board.orientation() === 'black';
+
+  // If flipped, top is White, bottom is Black
+  const topList = isFlipped ? capturedFromBlack : capturedFromWhite;
+  const bottomList = isFlipped ? capturedFromWhite : capturedFromBlack;
+
+  const topName = isFlipped ? 'White' : 'Black';
+  const bottomName = isFlipped ? 'Black' : 'White';
+
+  document.getElementById('topPlayerName').textContent = topName;
+  document.getElementById('bottomPlayerName').textContent = bottomName;
+
+  document.getElementById('topCapturedBar').querySelector('.player-dot').className = `player-dot ${isFlipped ? 'white-dot' : 'black-dot'}`;
+  document.getElementById('bottomCapturedBar').querySelector('.player-dot').className = `player-dot ${isFlipped ? 'black-dot' : 'white-dot'}`;
+
+  // Render HTML icons for captured pieces
+  document.getElementById('topCapturedPieces').innerHTML = topList.map(p =>
+    `<img src="${PIECE_IMAGES[p.color][p.type]}" class="captured-img" alt="${p.type}" />`
+  ).join('');
+
+  document.getElementById('bottomCapturedPieces').innerHTML = bottomList.map(p =>
+    `<img src="${PIECE_IMAGES[p.color][p.type]}" class="captured-img" alt="${p.type}" />`
+  ).join('');
+
+  // Material Advantage badges (+1, +3, etc.)
+  const topAdvEl = document.getElementById('topMaterialAdv');
+  const bottomAdvEl = document.getElementById('bottomMaterialAdv');
+
+  topAdvEl.textContent = '';
+  bottomAdvEl.textContent = '';
+
+  if (diffMaterial > 0) {
+    // White leads
+    if (isFlipped) topAdvEl.textContent = `+${diffMaterial}`;
+    else bottomAdvEl.textContent = `+${diffMaterial}`;
+  } else if (diffMaterial < 0) {
+    // Black leads
+    if (isFlipped) bottomAdvEl.textContent = `+${Math.abs(diffMaterial)}`;
+    else topAdvEl.textContent = `+${Math.abs(diffMaterial)}`;
+  }
 }
 
 function updateGameReview() {
@@ -658,21 +819,25 @@ function updateGameReview() {
     return;
   }
 
-  let counts = { best: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+  let counts = { best: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0, '...': 0 };
   let whiteBlunders = 0, whiteMistakes = 0;
   let blackBlunders = 0, blackMistakes = 0;
   let totalLoss = 0;
+  let analyzedMoves = 0;
 
   for (const m of moveQualityHistory) {
-    counts[m.quality] = (counts[m.quality] || 0) + 1;
-    totalLoss += m.loss;
+    if (m.quality !== '...') {
+      counts[m.quality] = (counts[m.quality] || 0) + 1;
+      totalLoss += m.loss;
+      analyzedMoves++;
 
-    if (m.color === 'w') {
-      if (m.quality === 'blunder') whiteBlunders++;
-      if (m.quality === 'mistake') whiteMistakes++;
-    } else {
-      if (m.quality === 'blunder') blackBlunders++;
-      if (m.quality === 'mistake') blackMistakes++;
+      if (m.color === 'w') {
+        if (m.quality === 'blunder') whiteBlunders++;
+        if (m.quality === 'mistake') whiteMistakes++;
+      } else {
+        if (m.quality === 'blunder') blackBlunders++;
+        if (m.quality === 'mistake') blackMistakes++;
+      }
     }
   }
 
@@ -685,27 +850,60 @@ function updateGameReview() {
   document.getElementById('whiteQualityStats').textContent = `${whiteBlunders} Blunders • ${whiteMistakes} Mistakes`;
   document.getElementById('blackQualityStats').textContent = `${blackBlunders} Blunders • ${blackMistakes} Mistakes`;
 
-  // Accuracy calculation based on average centipawn loss
-  const avgLoss = totalLoss / moveQualityHistory.length;
-  // Formula: Accuracy = 100 * exp(-0.005 * avgLoss)
+  if (analyzedMoves === 0) return;
+
+  const avgLoss = totalLoss / analyzedMoves;
   let accuracy = Math.round(100 * Math.exp(-0.0055 * avgLoss));
-  accuracy = Math.max(35, Math.min(99, accuracy));
+  accuracy = Math.max(30, Math.min(99, accuracy));
   document.getElementById('accuracyVal').textContent = `${accuracy}%`;
 
-  // Estimated Elo performance based on accuracy, blunders, and mistakes
-  let estElo = Math.round(600 + (accuracy - 35) * 28 - (counts.blunder * 35) - (counts.mistake * 15));
-  estElo = Math.max(700, Math.min(2750, estElo));
+  let estElo = Math.round(700 + (accuracy - 30) * 26 - (counts.blunder * 40) - (counts.mistake * 15));
+  estElo = Math.max(650, Math.min(2800, estElo));
   document.getElementById('estEloVal').textContent = `~${estElo} Elo`;
 
-  // Summary statement
   const summaryEl = document.getElementById('reviewSummaryText');
   if (counts.blunder === 0 && counts.mistake === 0) {
-    summaryEl.textContent = 'Spectacular accuracy! You are playing extremely clean, GM-tier chess.';
+    summaryEl.textContent = 'Flawless accuracy! GM-level precision without blunders.';
   } else if (counts.blunder === 0) {
-    summaryEl.textContent = 'Solid game without catastrophic blunders. Keep focusing on positional precision.';
+    summaryEl.textContent = `Solid game! No catastrophic blunders. Found ${counts.best} best moves.`;
   } else {
-    summaryEl.textContent = `Watch out: ${counts.blunder} blunder(s) and ${counts.mistake} mistake(s) detected. Check the Move List for move-by-move feedback.`;
+    summaryEl.textContent = `Caution: ${counts.blunder} blunder(s) and ${counts.mistake} mistake(s) occurred. Review move badges below to inspect turning points.`;
   }
+}
+
+function renderMoveHistoryBadges() {
+  const history = game.history();
+  if (history.length === 0) {
+    const emptyHtml = '<div class="move-list-empty">No moves yet</div>';
+    document.getElementById('moveHistory').innerHTML = emptyHtml;
+    document.getElementById('quickMoveHistory').innerHTML = emptyHtml;
+    return;
+  }
+
+  let html = '';
+  for (let i = 0; i < history.length; i += 2) {
+    const moveNum = Math.floor(i / 2) + 1;
+    const whiteMove = history[i] || '';
+    const blackMove = history[i + 1] || '';
+
+    const whiteReview = moveQualityHistory[i];
+    const blackReview = moveQualityHistory[i + 1];
+
+    const whiteBadge = (whiteReview && whiteReview.quality !== '...')
+      ? `<span class="move-badge badge-${whiteReview.quality}">${whiteReview.quality}</span>`
+      : '';
+    const blackBadge = (blackReview && blackReview.quality !== '...')
+      ? `<span class="move-badge badge-${blackReview.quality}">${blackReview.quality}</span>`
+      : '';
+
+    html += `<div class="move-row">
+      <span class="move-num">${moveNum}.</span>
+      <span>${whiteMove} ${whiteBadge}</span>
+      <span>${blackMove} ${blackBadge}</span>
+    </div>`;
+  }
+  document.getElementById('moveHistory').innerHTML = html;
+  document.getElementById('quickMoveHistory').innerHTML = html;
 }
 
 function checkBotTrigger() {
@@ -737,34 +935,8 @@ function updateUI() {
     statusEl.style.color = '#4ade80';
   }
 
-  // Render Move History with Blunder / Quality badges
-  const history = game.history();
-  const emptyHtml = '<div class="move-list-empty">No moves yet</div>';
-  if (history.length === 0) {
-    document.getElementById('moveHistory').innerHTML = emptyHtml;
-    document.getElementById('quickMoveHistory').innerHTML = emptyHtml;
-  } else {
-    let html = '';
-    for (let i = 0; i < history.length; i += 2) {
-      const moveNum = Math.floor(i / 2) + 1;
-      const whiteMove = history[i] || '';
-      const blackMove = history[i + 1] || '';
-
-      const whiteReview = moveQualityHistory[i];
-      const blackReview = moveQualityHistory[i + 1];
-
-      const whiteBadge = whiteReview ? `<span class="move-badge badge-${whiteReview.quality}">${whiteReview.quality}</span>` : '';
-      const blackBadge = blackReview ? `<span class="move-badge badge-${blackReview.quality}">${blackReview.quality}</span>` : '';
-
-      html += `<div class="move-row">
-        <span class="move-num">${moveNum}.</span>
-        <span>${whiteMove} ${whiteBadge}</span>
-        <span>${blackMove} ${blackBadge}</span>
-      </div>`;
-    }
-    document.getElementById('moveHistory').innerHTML = html;
-    document.getElementById('quickMoveHistory').innerHTML = html;
-  }
+  updateCapturedPiecesDisplay();
+  renderMoveHistoryBadges();
 
   if (currentMode === 'analysis') {
     analyzePosition();
@@ -825,6 +997,55 @@ function startNewBotGame() {
   }
 }
 
+// Full Analysis Report Copy function
+function copyFullAnalysisReport() {
+  const opening = detectOpening();
+  const evalScore = document.getElementById('evalScore').textContent;
+  const accuracy = document.getElementById('accuracyVal').textContent;
+  const estElo = document.getElementById('estEloVal').textContent;
+  const bestCount = document.getElementById('countBest').textContent;
+  const goodCount = document.getElementById('countGood').textContent;
+  const inaccCount = document.getElementById('countInacc').textContent;
+  const mistakeCount = document.getElementById('countMistake').textContent;
+  const blunderCount = document.getElementById('countBlunder').textContent;
+  const whiteStats = document.getElementById('whiteQualityStats').textContent;
+  const blackStats = document.getElementById('blackQualityStats').textContent;
+  const pgn = game.pgn() || 'No moves played yet.';
+
+  const report = [
+    '=== B CHESS ANALYZER — FULL GAME REPORT ===',
+    `Opening / Gambit : ${opening}`,
+    `Final Evaluation : ${evalScore}`,
+    `Move Accuracy    : ${accuracy}`,
+    `Estimated Elo    : ${estElo}`,
+    '-------------------------------------------',
+    'MOVE QUALITY BREAKDOWN:',
+    `★ Best Moves     : ${bestCount}`,
+    `✓ Good Moves     : ${goodCount}`,
+    `?! Inaccuracies  : ${inaccCount}`,
+    `? Mistakes       : ${mistakeCount}`,
+    `?? Blunders      : ${blunderCount}`,
+    '-------------------------------------------',
+    `White Stats      : ${whiteStats}`,
+    `Black Stats      : ${blackStats}`,
+    '-------------------------------------------',
+    'PGN MOVE RECORD:',
+    pgn,
+    '==========================================='
+  ].join('\n');
+
+  navigator.clipboard.writeText(report).then(() => {
+    const msg = document.getElementById('copySuccessMsg');
+    msg.style.display = 'block';
+    setTimeout(() => {
+      msg.style.display = 'none';
+    }, 3500);
+  }).catch(err => {
+    alert('Analysis report copied to console!');
+    console.log(report);
+  });
+}
+
 $(document).ready(function() {
   const config = {
     draggable: true,
@@ -837,7 +1058,6 @@ $(document).ready(function() {
 
   board = Chessboard('myBoard', config);
 
-  // Click & Mobile Touch event delegation
   let lastTouchTime = 0;
   $('#myBoard').on('touchstart', '.square-55d63', function() {
     lastTouchTime = Date.now();
@@ -864,6 +1084,9 @@ $(document).ready(function() {
 
   initStockfish();
   updateUI();
+
+  // Copy Analysis Button Listener
+  document.getElementById('copyAnalysisBtn').addEventListener('click', copyFullAnalysisReport);
 
   // Mode Switchers
   document.getElementById('modeAnalyzeBtn').addEventListener('click', () => {
@@ -930,6 +1153,7 @@ $(document).ready(function() {
   // Flip Board
   document.getElementById('flipBtn').addEventListener('click', () => {
     board.flip();
+    updateCapturedPiecesDisplay();
     if (currentBestMoveUci && currentMode === 'analysis') {
       drawBestMoveArrow(currentBestMoveUci);
     }
@@ -944,11 +1168,12 @@ $(document).ready(function() {
     const to = currentBestMoveUci.slice(2, 4);
     const promotion = currentBestMoveUci.length > 4 ? currentBestMoveUci[4] : 'q';
 
-    recordMoveBeforeExecution();
+    const beforeEval = currentPositionCp;
     const move = game.move({ from, to, promotion });
     if (move) {
       redoStack = [];
       board.position(game.fen());
+      recordMoveQuality(move, beforeEval);
       handleMoveEffects(move);
       updateUI();
     }
