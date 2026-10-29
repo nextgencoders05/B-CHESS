@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chess Analyzer — B-CHESS</title>
+  <title>Chess Analyzer Pro — Stockfish Engine & Eval Bar</title>
   <!-- Chessboard.js CSS -->
   <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" />
   <link rel="stylesheet" href="style.css" />
@@ -15,24 +15,47 @@
       <div class="brand">
         <span class="pawn-icon">♟</span>
         <div>
-          <h1>Chess Analyzer</h1>
-          <p>Interactive board preview & Stockfish analysis</p>
+          <h1>Chess Analyzer Pro</h1>
+          <p>Stockfish Engine + Live Evaluation Bar + Best Move Arrow</p>
         </div>
       </div>
       <div class="theme-controls">
+        <button id="arrowToggleBtn" class="pill-btn active-pill">🏹 Arrow: ON</button>
         <button id="themeBtn" class="pill-btn">Green & White</button>
       </div>
     </header>
 
     <!-- Main Content -->
     <main class="main-grid">
-      <!-- Left: Chessboard Section -->
+      <!-- Left: Eval Bar + Chessboard Section -->
       <section class="board-card">
-        <div id="myBoard" class="board-wrapper"></div>
+        <div class="board-and-eval">
+          <!-- Live Vertical Evaluation Bar -->
+          <div class="eval-bar-container" id="evalBarContainer" title="Live Stockfish Evaluation">
+            <div class="eval-bar-black" id="evalBarBlack"></div>
+            <div class="eval-bar-white" id="evalBarWhite" style="height: 50%;"></div>
+            <span class="eval-bar-score" id="evalBarText">0.0</span>
+          </div>
+
+          <!-- Chessboard + SVG Overlay for Best Move Arrow -->
+          <div class="board-relative-box" id="boardRelativeBox">
+            <div id="myBoard" class="board-wrapper"></div>
+            <svg id="arrowOverlay" class="arrow-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <defs>
+                <marker id="arrowhead" markerWidth="3.5" markerHeight="3.5" refX="2.3" refY="1.75" orient="auto">
+                  <polygon points="0 0, 3.5 1.75, 0 3.5" fill="rgba(56, 189, 248, 0.9)" />
+                </marker>
+              </defs>
+              <line id="bestMoveArrow" x1="0" y1="0" x2="0" y2="0" stroke="rgba(56, 189, 248, 0.85)" stroke-width="2.4" stroke-linecap="round" marker-end="url(#arrowhead)" visibility="hidden" />
+            </svg>
+          </div>
+        </div>
+
         <div class="board-controls">
           <button id="undoBtn" class="control-btn">↩ Undo</button>
           <button id="redoBtn" class="control-btn">↪ Redo</button>
           <button id="flipBtn" class="control-btn">⇅ Flip</button>
+          <button id="playBestBtn" class="control-btn highlight-btn">⚡ Play Best</button>
           <button id="resetBtn" class="control-btn active-outline">↺ Reset</button>
         </div>
       </section>
@@ -40,58 +63,87 @@
       <!-- Right: Analysis Panel -->
       <section class="analysis-card">
         <div class="tabs">
-          <button class="tab active" data-tab="analysis">Analysis</button>
-          <button class="tab" data-tab="moves">Move List</button>
-          <button class="tab" data-tab="eval">Evaluation</button>
+          <button class="tab active" data-tab="analysisTab">Analysis</button>
+          <button class="tab" data-tab="movesTab">Move List</button>
+          <button class="tab" data-tab="evalTab">Evaluation</button>
         </div>
 
-        <div class="panel-box best-move-box">
-          <span class="label">Best Move</span>
-          <h2 id="bestMoveText">Calculating...</h2>
-          <p id="engineSubtext">Browser-based Stockfish engine active.</p>
+        <!-- TAB 1: ANALYSIS -->
+        <div id="analysisTab" class="tab-content active-content">
+          <div class="panel-box best-move-box">
+            <div class="best-move-header">
+              <span class="label">Best Move Suggestion</span>
+              <span class="engine-badge" id="engineBadge">Stockfish Active</span>
+            </div>
+            <h2 id="bestMoveText">Calculating...</h2>
+            <p id="engineSubtext">Initializing Stockfish WebAssembly Engine...</p>
+            <div class="pv-line" id="pvLineText">Line: Waiting for engine output...</div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="panel-box">
+              <span class="label">Evaluation</span>
+              <div class="stat-val" id="evalScore">+0.00</div>
+            </div>
+            <div class="panel-box">
+              <span class="label">Depth</span>
+              <div class="stat-val" id="depthVal">0 / 16</div>
+            </div>
+            <div class="panel-box">
+              <span class="label">Opening</span>
+              <div class="stat-val" id="openingName">Starting Position</div>
+            </div>
+            <div class="panel-box">
+              <span class="label">Status</span>
+              <div class="stat-val status-ready" id="gameStatus">White to move</div>
+            </div>
+          </div>
         </div>
 
-        <div class="stats-grid">
-          <div class="panel-box">
-            <span class="label">Evaluation</span>
-            <div class="stat-val" id="evalScore">+0.00</div>
-          </div>
-          <div class="panel-box">
-            <span class="label">Depth</span>
-            <div class="stat-val" id="depthVal">14</div>
-          </div>
-          <div class="panel-box">
-            <span class="label">Opening</span>
-            <div class="stat-val" id="openingName">Starting Position</div>
-          </div>
-          <div class="panel-box">
-            <span class="label">Status</span>
-            <div class="stat-val status-ready" id="gameStatus">Ready</div>
+        <!-- TAB 2: MOVE LIST -->
+        <div id="movesTab" class="tab-content">
+          <div class="panel-box history-box">
+            <span class="label">Full Move History (SAN)</span>
+            <div id="moveHistory" class="move-list-empty">No moves yet</div>
           </div>
         </div>
 
-        <div class="panel-box history-box">
+        <!-- TAB 3: EVALUATION DETAILS -->
+        <div id="evalTab" class="tab-content">
+          <div class="panel-box">
+            <span class="label">Win Probability Breakdown</span>
+            <div class="win-prob-bar">
+              <div id="whiteProbBar" class="prob-white" style="width: 50%">White 50%</div>
+              <div id="blackProbBar" class="prob-black" style="width: 50%">Black 50%</div>
+            </div>
+            <p class="eval-explain" id="evalExplainText">Position is balanced.</p>
+          </div>
+          <div class="panel-box">
+            <span class="label">Engine Depth Setting</span>
+            <input type="range" id="depthSlider" min="8" max="20" value="15" style="width:100%;" />
+            <div style="font-size:12px; color:#94a3b8; margin-top:4px;">Target Depth: <span id="depthSliderVal">15</span></div>
+          </div>
+        </div>
+
+        <!-- Common Quick Move History Preview -->
+        <div class="panel-box history-box" id="quickHistoryBox">
           <span class="label">Move History</span>
-          <div id="moveHistory" class="move-list-empty">No moves yet</div>
+          <div id="quickMoveHistory" class="move-list-empty">No moves yet</div>
         </div>
 
+        <!-- Load FEN -->
         <div class="panel-box pgn-box">
-          <span class="label">Load FEN / PGN</span>
+          <span class="label">Load FEN Position</span>
           <div class="fen-input-row">
             <input type="text" id="fenInput" placeholder="Paste FEN string here..." />
             <button id="loadFenBtn" class="control-btn">Load</button>
           </div>
         </div>
-
-        <div class="panel-box footer-box">
-          <strong>Free Chess Analyzer</strong>
-          <p>Built for browser-based Stockfish analysis. Fixed piece rendering for GitHub Pages.</p>
-        </div>
       </section>
     </main>
   </div>
 
-  <!-- Required Libraries: jQuery, Chess.js, Chessboard.js -->
+  <!-- Libraries: jQuery, Chess.js, Chessboard.js -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
   <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
