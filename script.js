@@ -11,6 +11,8 @@ let targetDepth = 15;
 
 // Click-to-Move / Tap state
 let selectedSquare = null;
+let dragActive = false;
+let lastDropTime = 0;
 
 // Game Mode State: 'analysis' or 'bot'
 let currentMode = 'analysis';
@@ -398,10 +400,26 @@ function onDragStart(source, piece) {
     return false;
   }
 
+  dragActive = true;
   showLegalDestinations(source);
 }
 
 function onDrop(source, target) {
+  dragActive = false;
+  lastDropTime = Date.now();
+
+  // Tap on the same square = select / deselect (click-to-move)
+  if (source === target) {
+    if (selectedSquare === source) {
+      clearClickHighlights();
+      selectedSquare = null;
+    } else {
+      selectedSquare = source;
+      showLegalDestinations(source);
+    }
+    return 'snapback';
+  }
+
   clearClickHighlights();
   selectedSquare = null;
 
@@ -592,6 +610,8 @@ $(document).ready(function() {
   });
 
   $('#myBoard').on('click touchend', '.square-55d63', function(e) {
+    if (dragActive) return;
+    if (Date.now() - lastDropTime < 400) return;
     if (e.type === 'click' && Date.now() - lastTouchTime < 450) {
       return; // prevent duplicate trigger after touch
     }
