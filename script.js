@@ -1,4 +1,4 @@
-// B-CHESS PRO — Stockfish Engine + Live Evaluation Bar + Click-to-Move + Play vs Bot
+// B Chess Analyzer — Stockfish Engine + Mobile Tap-to-Move + Gambits & Openings
 
 let board = null;
 const game = new Chess();
@@ -9,7 +9,7 @@ let currentBestMoveUci = null;
 let showBestMoveArrow = true;
 let targetDepth = 15;
 
-// Click-to-Move state
+// Click-to-Move / Tap state
 let selectedSquare = null;
 
 // Game Mode State: 'analysis' or 'bot'
@@ -18,7 +18,7 @@ let playerColor = 'w'; // 'w' or 'b'
 let botRating = 1400;  // 800, 1100, 1400, 1700, 2000, 2500
 let isBotThinking = false;
 
-// Bot skill mapping: Stockfish Skill Level (0-20), search depth, move time (ms), random blunder chance
+// Bot skill settings
 const BOT_PROFILES = {
   800:  { skill: 0,  depth: 1,  moveTime: 300, blunderRate: 0.35 },
   1100: { skill: 3,  depth: 2,  moveTime: 400, blunderRate: 0.18 },
@@ -28,21 +28,96 @@ const BOT_PROFILES = {
   2500: { skill: 20, depth: 14, moveTime: 1000, blunderRate: 0.00 }
 };
 
-const OPENINGS = {
-  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR": "King's Pawn Opening (1. e4)",
-  "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR": "Queen's Pawn Opening (1. d4)",
-  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR": "Open Game (1. e4 e5)",
-  "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR": "Sicilian Defense (1. e4 c5)",
-  "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R": "King's Knight Opening",
-  "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R": "Open Game (2. Nf3 Nc6)",
-  "r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R": "Scotch Game (3. d4)",
-  "r1bqkbnr/pppp1ppp/2n5/8/3pP3/5N2/PPP2PPP/RNBQKB1R": "Scotch Game Accepted",
-  "r1bqkbnr/pppp1ppp/2n5/8/2BpP3/5N2/PPP2PPP/RNBQK2R": "Scotch Gambit (4. Bc4)",
-  "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R": "Ruy Lopez",
-  "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R": "Italian Game"
-};
+// Rich Opening & Gambit Dictionary
+const OPENINGS_LIST = [
+  // Gambits
+  { moves: ["e4", "e5", "f4"], name: "King's Gambit" },
+  { moves: ["e4", "e5", "f4", "exf4"], name: "King's Gambit Accepted" },
+  { moves: ["e4", "e5", "f4", "d5"], name: "Falkbeer Counter-Gambit" },
+  { moves: ["d4", "d5", "c4"], name: "Queen's Gambit" },
+  { moves: ["d4", "d5", "c4", "dxc4"], name: "Queen's Gambit Accepted (QGA)" },
+  { moves: ["d4", "d5", "c4", "c6"], name: "Slav Defense" },
+  { moves: ["d4", "d5", "c4", "e6"], name: "Queen's Gambit Declined (QGD)" },
+  { moves: ["e4", "e5", "Nf3", "Nc6", "d4", "exd4", "Bc4"], name: "Scotch Gambit" },
+  { moves: ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5", "b4"], name: "Evans Gambit" },
+  { moves: ["e4", "e5", "d4", "exd4", "c3"], name: "Danish Gambit" },
+  { moves: ["e4", "e5", "Nf3", "d5"], name: "Elephant Gambit" },
+  { moves: ["e4", "e5", "Nf3", "f5"], name: "Latvian Gambit" },
+  { moves: ["d4", "Nf6", "c4", "e5"], name: "Budapest Gambit" },
+  { moves: ["d4", "f5", "e4"], name: "Staunton Gambit" },
+  { moves: ["d4", "c5", "d5", "b5"], name: "Benko Gambit" },
+  { moves: ["e4", "c5", "b4"], name: "Sicilian Wing Gambit" },
+  { moves: ["e4", "c5", "d4", "cxd4", "c3"], name: "Smith-Morra Gambit" },
+  { moves: ["d4", "d5", "e4"], name: "Blackmar-Diemer Gambit" },
+  { moves: ["e4", "e6", "d4", "d5", "c4"], name: "Diemer-Duhm Gambit" },
+  { moves: ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5", "d5", "exd5", "Na5"], name: "Two Knights Defense" },
+  { moves: ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "d4"], name: "Two Knights: Modern Bishop's Opening" },
+  { moves: ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5"], name: "Giuoco Piano (Italian Game)" },
+  { moves: ["e4", "e5", "Nf3", "Nc6", "Bc4"], name: "Italian Game" },
+  { moves: ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6"], name: "Ruy Lopez: Morphy Defense" },
+  { moves: ["e4", "e5", "Nf3", "Nc6", "Bb5"], name: "Ruy Lopez (Spanish Opening)" },
+  { moves: ["e4", "e5", "Nf3", "Nc6", "d4"], name: "Scotch Game" },
+  { moves: ["e4", "e5", "Nf3", "Nf6"], name: "Petrov's Defense (Russian Game)" },
+  { moves: ["e4", "e5", "Nf3", "d6"], name: "Philidor Defense" },
+  { moves: ["e4", "e5", "Nc3"], name: "Vienna Game" },
+  { moves: ["e4", "e5", "Bc4"], name: "Bishop's Opening" },
+  { moves: ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "a6"], name: "Sicilian Defense: Najdorf Variation" },
+  { moves: ["e4", "c5", "Nf3", "Nc6", "d4", "cxd4", "Nxd4", "g6"], name: "Sicilian Defense: Accelerated Dragon" },
+  { moves: ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "g6"], name: "Sicilian Defense: Dragon Variation" },
+  { moves: ["e4", "c5", "c3"], name: "Sicilian Defense: Alapin Variation" },
+  { moves: ["e4", "c5", "Nc3"], name: "Closed Sicilian" },
+  { moves: ["e4", "c5"], name: "Sicilian Defense" },
+  { moves: ["e4", "e6", "d4", "d5"], name: "French Defense" },
+  { moves: ["e4", "e6"], name: "French Defense" },
+  { moves: ["e4", "c6", "d4", "d5"], name: "Caro-Kann Defense" },
+  { moves: ["e4", "c6"], name: "Caro-Kann Defense" },
+  { moves: ["e4", "d6", "d4", "Nf6"], name: "Pirc Defense" },
+  { moves: ["e4", "Nf6"], name: "Alekhine's Defense" },
+  { moves: ["e4", "d5"], name: "Scandinavian Defense (Center Counter)" },
+  { moves: ["e4", "g6"], name: "Modern Defense" },
+  { moves: ["d4", "Nf6", "c4", "g6", "Nc3", "Bg7"], name: "King's Indian Defense (KID)" },
+  { moves: ["d4", "Nf6", "c4", "e6", "Nc3", "Bb4"], name: "Nimzo-Indian Defense" },
+  { moves: ["d4", "Nf6", "c4", "e6", "Nf3", "b6"], name: "Queen's Indian Defense" },
+  { moves: ["d4", "Nf6", "c4", "c5"], name: "Benoni Defense" },
+  { moves: ["d4", "f5"], name: "Dutch Defense" },
+  { moves: ["d4", "d5", "Bf4"], name: "London System" },
+  { moves: ["d4", "Nf6", "Bf4"], name: "London System" },
+  { moves: ["c4"], name: "English Opening" },
+  { moves: ["Nf3"], name: "Réti Opening" },
+  { moves: ["b3"], name: "Nimzo-Larsen Attack" },
+  { moves: ["f4"], name: "Bird's Opening" },
+  { moves: ["e4", "e5"], name: "Open Game (1. e4 e5)" },
+  { moves: ["e4"], name: "King's Pawn Opening (1. e4)" },
+  { moves: ["d4"], name: "Queen's Pawn Opening (1. d4)" }
+];
 
-// 1. Initialize Stockfish Engine via Fetch + Blob
+function detectOpening() {
+  const history = game.history();
+  if (history.length === 0) return "Starting Position";
+
+  let matchedOpening = null;
+  let maxMatchedLen = 0;
+
+  for (const item of OPENINGS_LIST) {
+    if (item.moves.length <= history.length) {
+      let match = true;
+      for (let i = 0; i < item.moves.length; i++) {
+        if (history[i] !== item.moves[i]) {
+          match = false;
+          break;
+        }
+      }
+      if (match && item.moves.length > maxMatchedLen) {
+        maxMatchedLen = item.moves.length;
+        matchedOpening = item.name;
+      }
+    }
+  }
+
+  return matchedOpening || "Unorthodox / Custom Variation";
+}
+
+// 1. Initialize Stockfish Engine
 async function initStockfish() {
   const urls = [
     'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js',
@@ -104,7 +179,6 @@ function setupStockfishListeners() {
         document.getElementById('pvLineText').textContent = `Engine Line: ${pvMoves.slice(0, 5).join(' → ')}`;
       }
 
-      // Calculate perspective score (Always from White's perspective for Eval Bar)
       const turnMultiplier = game.turn() === 'w' ? 1 : -1;
 
       if (mateMatch) {
@@ -142,7 +216,6 @@ function setupStockfishListeners() {
   };
 }
 
-// Convert UCI into readable instruction
 function updateBestMoveDisplay(uci) {
   if (!uci || uci.length < 4) return;
   const from = uci.slice(0, 2);
@@ -157,7 +230,6 @@ function updateBestMoveDisplay(uci) {
   document.getElementById('engineSubtext').textContent = `Move piece from ${from.toUpperCase()} to ${to.toUpperCase()}`;
 }
 
-// Update Live Evaluation Bar & Win Probability
 function updateEvalBar(cpWhite, displayScore) {
   const clamped = Math.max(-10, Math.min(10, cpWhite));
   const whitePercent = 50 + (clamped / 10) * 46;
@@ -173,14 +245,13 @@ function updateEvalBar(cpWhite, displayScore) {
   document.getElementById('blackProbBar').textContent = `Black ${bProb}%`;
 
   const explainEl = document.getElementById('evalExplainText');
-  if (cpWhite > 1.5) explainEl.textContent = 'White has a winning/clear advantage.';
+  if (cpWhite > 1.5) explainEl.textContent = 'White has a winning advantage.';
   else if (cpWhite > 0.4) explainEl.textContent = 'White is slightly better.';
-  else if (cpWhite < -1.5) explainEl.textContent = 'Black has a winning/clear advantage.';
+  else if (cpWhite < -1.5) explainEl.textContent = 'Black has a winning advantage.';
   else if (cpWhite < -0.4) explainEl.textContent = 'Black is slightly better.';
-  else explainEl.textContent = 'Position is approximately equal.';
+  else explainEl.textContent = 'Position is balanced.';
 }
 
-// Draw Best Move Arrow
 function drawBestMoveArrow(uci) {
   clearHighlights();
   const arrowEl = document.getElementById('bestMoveArrow');
@@ -241,7 +312,7 @@ function showLegalDestinations(sourceSquare) {
   const legalMoves = game.moves({ square: sourceSquare, verbose: true });
   for (const m of legalMoves) {
     const $target = $(`#myBoard .square-${m.to}`);
-    if (m.captured) {
+    if (m.captured || game.get(m.to)) {
       $target.addClass('legal-dest-capture');
     } else {
       $target.addClass('legal-dest-dot');
@@ -264,7 +335,6 @@ function analyzePosition() {
   stockfish.postMessage('go depth ' + targetDepth);
 }
 
-// BOT LOGIC: Configure Stockfish according to selected Elo rating
 function requestBotMove() {
   if (game.game_over() || !stockfish || !engineReady) return;
   isBotThinking = true;
@@ -276,11 +346,9 @@ function requestBotMove() {
 
   const profile = BOT_PROFILES[botRating] || BOT_PROFILES[1400];
 
-  // Optional blunder calculation for lower ratings
   if (Math.random() < profile.blunderRate) {
     const legalMoves = game.moves({ verbose: true });
     if (legalMoves.length > 0) {
-      // Pick a random legal move with slight delay
       const randomMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
       setTimeout(() => {
         if (!isBotThinking) return;
@@ -321,16 +389,16 @@ function onDragStart(source, piece) {
   if (game.game_over()) return false;
   if (isBotThinking) return false;
 
-  // Turn check
   if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
       (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
     return false;
   }
 
-  // Play vs Bot mode: only allow human color
   if (currentMode === 'bot' && game.turn() !== playerColor) {
     return false;
   }
+
+  showLegalDestinations(source);
 }
 
 function onDrop(source, target) {
@@ -354,22 +422,24 @@ function onSnapEnd() {
   board.position(game.fen());
 }
 
-// CLICK-TO-MOVE HANDLER: Allows clicking a piece, then clicking destination
+// Universal Click & Touch handler for mobile & desktop
 function handleSquareClick(square) {
   if (game.game_over() || isBotThinking) return;
 
-  // Check if user is trying to click a destination for currently selected piece
   if (selectedSquare) {
-    // If clicked on another piece of the same side, switch selection
     const clickedPiece = game.get(square);
     if (clickedPiece && clickedPiece.color === game.turn() &&
         (currentMode !== 'bot' || clickedPiece.color === playerColor)) {
+      if (selectedSquare === square) {
+        clearClickHighlights();
+        selectedSquare = null;
+        return;
+      }
       selectedSquare = square;
       showLegalDestinations(square);
       return;
     }
 
-    // Attempt the move
     const move = game.move({
       from: selectedSquare,
       to: square,
@@ -388,14 +458,10 @@ function handleSquareClick(square) {
     }
   }
 
-  // First click: selecting a piece
   const piece = game.get(square);
   if (!piece) return;
 
-  // Ensure it's active side's piece
   if (piece.color !== game.turn()) return;
-
-  // If in bot mode, ensure it's human player's piece
   if (currentMode === 'bot' && piece.color !== playerColor) return;
 
   selectedSquare = square;
@@ -413,12 +479,8 @@ function checkBotTrigger() {
 }
 
 function updateUI() {
-  const fenBoard = game.fen().split(' ')[0];
-  if (game.history().length === 0) {
-    document.getElementById('openingName').textContent = 'Starting Position';
-  } else if (OPENINGS[fenBoard]) {
-    document.getElementById('openingName').textContent = OPENINGS[fenBoard];
-  }
+  const currentOpening = detectOpening();
+  document.getElementById('openingName').textContent = currentOpening;
 
   const statusEl = document.getElementById('gameStatus');
   if (game.in_checkmate()) {
@@ -435,7 +497,6 @@ function updateUI() {
     statusEl.style.color = '#4ade80';
   }
 
-  // Render Move History
   const history = game.history();
   const emptyHtml = '<div class="move-list-empty">No moves yet</div>';
   if (history.length === 0) {
@@ -507,7 +568,7 @@ function startNewBotGame() {
     }, 400);
   } else {
     document.getElementById('bestMoveText').textContent = 'Your turn!';
-    document.getElementById('engineSubtext').textContent = `Playing against Stockfish bot (Rating: ${botRating})`;
+    document.getElementById('engineSubtext').textContent = `Playing against Stockfish bot (${botRating})`;
     document.getElementById('pvLineText').textContent = 'Make your opening move...';
   }
 }
@@ -524,8 +585,16 @@ $(document).ready(function() {
 
   board = Chessboard('myBoard', config);
 
-  // Bind click-to-move listener on board squares
-  $('#myBoard').on('click', '.square-55d63', function() {
+  // Click & Mobile Touch event delegation
+  let lastTouchTime = 0;
+  $('#myBoard').on('touchstart', '.square-55d63', function() {
+    lastTouchTime = Date.now();
+  });
+
+  $('#myBoard').on('click touchend', '.square-55d63', function(e) {
+    if (e.type === 'click' && Date.now() - lastTouchTime < 450) {
+      return; // prevent duplicate trigger after touch
+    }
     const square = $(this).attr('data-square');
     if (square) {
       handleSquareClick(square);
@@ -567,7 +636,6 @@ $(document).ready(function() {
     selectedSquare = null;
 
     if (currentMode === 'bot') {
-      // Undo two moves in bot mode (bot move + player move)
       game.undo();
       game.undo();
     } else {

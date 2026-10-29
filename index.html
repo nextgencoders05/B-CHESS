@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chess Analyzer Pro — Stockfish Engine & Play vs Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>B Chess Analyzer</title>
   <!-- Chessboard.js CSS -->
   <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" />
   <link rel="stylesheet" href="style.css" />
@@ -15,8 +15,8 @@
       <div class="brand">
         <span class="pawn-icon">♟</span>
         <div>
-          <h1>Chess Analyzer Pro</h1>
-          <p>Stockfish Engine • Click-to-Move • Play Against Bot Rating</p>
+          <h1>B Chess Analyzer</h1>
+          <p>Stockfish Engine • Mobile Tap-to-Move • Gambits & Openings</p>
         </div>
       </div>
       <div class="theme-controls">
@@ -121,9 +121,9 @@
               <span class="label">Depth</span>
               <div class="stat-val" id="depthVal">0 / 15</div>
             </div>
-            <div class="panel-box">
-              <span class="label">Opening</span>
-              <div class="stat-val" id="openingName">Starting Position</div>
+            <div class="panel-box opening-panel-box">
+              <span class="label">Opening / Gambit</span>
+              <div class="stat-val opening-badge" id="openingName">Starting Position</div>
             </div>
             <div class="panel-box">
               <span class="label">Status</span>
