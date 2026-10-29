@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess Analyzer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">♟</div>
+        <div>
+          <h1>Chess Analyzer</h1>
+          <p>Interactive board preview</p>
+        </div>
+      </div>
+      <button class="theme-btn" id="themeBtn">Green &amp; White <span>⌄</span></button>
+    </header>
+
+    <section class="workspace">
+      <section class="board-card">
+        <div class="board-wrap">
+          <div id="chessboard" class="chessboard" aria-label="Chess board"></div>
+        </div>
+
+        <div class="controls">
+          <button id="undoBtn">↶ <span>Undo</span></button>
+          <button id="redoBtn">↷ <span>Redo</span></button>
+          <button id="flipBtn">↕ <span>Flip</span></button>
+          <button id="resetBtn">⟳ <span>Reset</span></button>
+        </div>
+      </section>
+
+      <aside class="analysis-card">
+        <nav class="tabs">
+          <button class="active">Analysis</button>
+          <button>Move List</button>
+          <button>Evaluation</button>
+        </nav>
+
+        <div class="best-card">
+          <div class="label">Best Move</div>
+          <div class="waiting">Waiting...</div>
+          <div class="muted">Stockfish will be added in the next build step.</div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat"><span>Evaluation</span><strong>+0.00</strong></div>
+          <div class="stat"><span>Depth</span><strong>–</strong></div>
+          <div class="stat"><span>Opening</span><strong>Starting</strong></div>
+          <div class="stat"><span>Status</span><strong class="ready">Ready</strong></div>
+        </div>
+
+        <div class="history">
+          <h3>Move History</h3>
+          <div id="moveHistory" class="empty">No moves yet</div>
+        </div>
+
+        <div class="free-card">
+          <strong>Free Chess Analyzer</strong>
+          <span>Built for browser-based Stockfish analysis.</span>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
