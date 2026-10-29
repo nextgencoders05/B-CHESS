@@ -244,7 +244,7 @@ body {
   color: #fff;
 }
 
-/* Board Relative Container & SVG Arrow Overlay */
+/* Board Relative Box */
 .board-relative-box {
   position: relative;
   width: 100%;
@@ -263,7 +263,6 @@ body {
   touch-action: manipulation;
 }
 
-/* Ensure squares are clickable and responsive to touch */
 .square-55d63 {
   touch-action: manipulation !important;
   cursor: pointer !important;
@@ -285,7 +284,7 @@ body {
   box-shadow: inset 0 0 0 3px #eab308 !important;
 }
 
-/* Chess.com style legal move dots for empty destination squares */
+/* Chess.com style legal move dots */
 .legal-dest-dot {
   position: relative;
   cursor: pointer !important;
@@ -306,7 +305,7 @@ body {
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.45);
 }
 
-/* Chess.com style capture ring for opponent pieces */
+/* Chess.com style capture ring */
 .legal-dest-capture {
   position: relative;
   cursor: pointer !important;
@@ -394,7 +393,7 @@ body.wood-theme .black-3c85d {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   border-bottom: 1px solid #1e2d33;
   margin-bottom: 14px;
 }
@@ -403,7 +402,7 @@ body.wood-theme .black-3c85d {
   background: transparent;
   border: none;
   color: #94a3b8;
-  padding: 8px;
+  padding: 8px 4px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -505,6 +504,115 @@ body.wood-theme .black-3c85d {
   color: #4ade80;
 }
 
+/* Game Review & Elo Card Styles */
+.review-hero-card {
+  background: linear-gradient(135deg, #102633 0%, #0c181e 100%);
+  border: 1px solid #204152;
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.performance-elo {
+  font-size: 28px;
+  font-weight: 800;
+  color: #38bdf8;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+}
+
+.accuracy-circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #182a33;
+  border: 2px solid #38bdf8;
+  border-radius: 50%;
+  width: 68px;
+  height: 68px;
+}
+
+.accuracy-val {
+  font-size: 16px;
+  font-weight: 800;
+  color: #4ade80;
+}
+
+.accuracy-sub {
+  font-size: 9px;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.review-summary {
+  font-size: 12px;
+  color: #cbd5e1;
+  margin-top: 10px;
+  line-height: 1.4;
+}
+
+/* Quality Breakdown */
+.quality-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.quality-item {
+  background: #0d161a;
+  border: 1px solid #1a2a32;
+  border-radius: 6px;
+  padding: 6px 4px;
+  text-align: center;
+}
+
+.quality-badge {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.quality-count {
+  font-size: 16px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.quality-best .quality-badge { color: #38bdf8; }
+.quality-good .quality-badge { color: #4ade80; }
+.quality-inaccuracy .quality-badge { color: #facc15; }
+.quality-mistake .quality-badge { color: #fb923c; }
+.quality-blunder .quality-badge { color: #f87171; }
+
+.side-comparison {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.side-col {
+  text-align: center;
+}
+
+.side-col strong {
+  display: block;
+  color: #38bdf8;
+  margin-bottom: 4px;
+}
+
+.side-divider {
+  width: 1px;
+  height: 36px;
+  background: #1e2d33;
+}
+
 .history-box {
   min-height: 120px;
   max-height: 170px;
@@ -529,6 +637,21 @@ body.wood-theme .black-3c85d {
 .move-row span.move-num {
   color: #64748b;
 }
+
+.move-badge {
+  display: inline-block;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.badge-blunder { background: #991b1b; color: #fecaca; }
+.badge-mistake { background: #9a3412; color: #fed7aa; }
+.badge-inaccuracy { background: #854d0e; color: #fef08a; }
+.badge-good { background: #166534; color: #bbf7d0; }
+.badge-best { background: #075985; color: #bae6fd; }
 
 .win-prob-bar {
   display: flex;
@@ -616,7 +739,13 @@ body.wood-theme .black-3c85d {
     font-size: 26px;
   }
   .pill-btn {
-    padding: 5px 10px;
+    padding: 5px 8px;
     font-size: 11px;
+  }
+  .tabs {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .quality-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }

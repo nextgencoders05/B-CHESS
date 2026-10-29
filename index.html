@@ -16,10 +16,11 @@
         <span class="pawn-icon">♟</span>
         <div>
           <h1>B Chess Analyzer</h1>
-          <p>Stockfish Engine • Mobile Tap-to-Move • Gambits & Openings</p>
+          <p>Stockfish Engine • Sounds • Game Review • Blunders & Mistakes</p>
         </div>
       </div>
       <div class="theme-controls">
+        <button id="soundToggleBtn" class="pill-btn active-pill">🔊 Sound: ON</button>
         <button id="arrowToggleBtn" class="pill-btn active-pill">🏹 Arrow: ON</button>
         <button id="themeBtn" class="pill-btn">Green & White</button>
       </div>
@@ -96,6 +97,7 @@
       <section class="analysis-card">
         <div class="tabs">
           <button class="tab active" data-tab="analysisTab">Analysis</button>
+          <button class="tab" data-tab="reviewTab">Game Review & Elo</button>
           <button class="tab" data-tab="movesTab">Move List</button>
           <button class="tab" data-tab="evalTab">Evaluation</button>
         </div>
@@ -132,15 +134,75 @@
           </div>
         </div>
 
-        <!-- TAB 2: MOVE LIST -->
+        <!-- TAB 2: GAME REVIEW, BLUNDERS & ELO RATING -->
+        <div id="reviewTab" class="tab-content">
+          <div class="panel-box review-hero-card">
+            <div class="review-header">
+              <div>
+                <span class="label">Estimated Game Performance Rating</span>
+                <div class="performance-elo" id="estEloVal">-- Elo</div>
+              </div>
+              <div class="accuracy-circle">
+                <span class="accuracy-val" id="accuracyVal">--%</span>
+                <span class="accuracy-sub">Accuracy</span>
+              </div>
+            </div>
+            <p class="review-summary" id="reviewSummaryText">Make moves to generate your live game review, accuracy score, and blunder report.</p>
+          </div>
+
+          <!-- Blunders & Mistakes Metrics Grid -->
+          <div class="panel-box">
+            <span class="label">Move Quality Breakdown</span>
+            <div class="quality-grid">
+              <div class="quality-item quality-best">
+                <span class="quality-badge">★ Best</span>
+                <span class="quality-count" id="countBest">0</span>
+              </div>
+              <div class="quality-item quality-good">
+                <span class="quality-badge">✓ Good</span>
+                <span class="quality-count" id="countGood">0</span>
+              </div>
+              <div class="quality-item quality-inaccuracy">
+                <span class="quality-badge">?! Inaccuracy</span>
+                <span class="quality-count" id="countInacc">0</span>
+              </div>
+              <div class="quality-item quality-mistake">
+                <span class="quality-badge">? Mistake</span>
+                <span class="quality-count" id="countMistake">0</span>
+              </div>
+              <div class="quality-item quality-blunder">
+                <span class="quality-badge">?? Blunder</span>
+                <span class="quality-count" id="countBlunder">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Player vs Opponent Stats -->
+          <div class="panel-box">
+            <span class="label">Side Comparison (White vs Black)</span>
+            <div class="side-comparison">
+              <div class="side-col">
+                <strong>White</strong>
+                <div id="whiteQualityStats">0 Blunders • 0 Mistakes</div>
+              </div>
+              <div class="side-divider"></div>
+              <div class="side-col">
+                <strong>Black</strong>
+                <div id="blackQualityStats">0 Blunders • 0 Mistakes</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: MOVE LIST -->
         <div id="movesTab" class="tab-content">
           <div class="panel-box history-box">
-            <span class="label">Full Move History (SAN)</span>
+            <span class="label">Full Move History & Feedback</span>
             <div id="moveHistory" class="move-list-empty">No moves yet</div>
           </div>
         </div>
 
-        <!-- TAB 3: EVALUATION DETAILS -->
+        <!-- TAB 4: EVALUATION DETAILS -->
         <div id="evalTab" class="tab-content">
           <div class="panel-box">
             <span class="label">Win Probability Breakdown</span>
@@ -159,7 +221,7 @@
 
         <!-- Common Quick Move History Preview -->
         <div class="panel-box history-box" id="quickHistoryBox">
-          <span class="label">Move History</span>
+          <span class="label">Recent Moves</span>
           <div id="quickMoveHistory" class="move-list-empty">No moves yet</div>
         </div>
 

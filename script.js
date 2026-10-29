@@ -1,4 +1,4 @@
-// B Chess Analyzer — Stockfish Engine + Mobile Tap-to-Move + Gambits & Openings
+// B Chess Analyzer — Stockfish Engine + Audio FX + Game Review + Blunders/Mistakes + Rating
 
 let board = null;
 const game = new Chess();
@@ -8,6 +8,7 @@ let engineReady = false;
 let currentBestMoveUci = null;
 let showBestMoveArrow = true;
 let targetDepth = 15;
+let soundEnabled = true;
 
 // Click-to-Move / Tap state
 let selectedSquare = null;
@@ -16,11 +17,112 @@ let lastDropTime = 0;
 
 // Game Mode State: 'analysis' or 'bot'
 let currentMode = 'analysis';
-let playerColor = 'w'; // 'w' or 'b'
-let botRating = 1400;  // 800, 1100, 1400, 1700, 2000, 2500
+let playerColor = 'w';
+let botRating = 1400;
 let isBotThinking = false;
 
-// Bot skill settings
+// Audio Synthesizer (Using Web Audio API - zero external audio asset lag/failures)
+let audioCtx = null;
+
+function getAudioContext() {
+  if (!audioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      audioCtx = new AudioContext();
+    }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+// Chess Sound Effects Generator
+function playSound(type) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+
+    if (type === 'move') {
+      // Natural wooden chess piece tap
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(260, now);
+      osc.frequency.exponentialRampToValueAtTime(70, now + 0.08);
+
+      gain.gain.setValueAtTime(0.7, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.08);
+
+    } else if (type === 'capture') {
+      // Sharper capture strike
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.11);
+
+      gain.gain.setValueAtTime(0.85, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.11);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.11);
+
+    } else if (type === 'check') {
+      // Alert chime for check
+      const freqs = [587.33, 880];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+
+        gain.gain.setValueAtTime(0.4, now + i * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.15);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.08);
+        osc.stop(now + i * 0.08 + 0.15);
+      });
+
+    } else if (type === 'checkmate') {
+      // Dramatic checkmate chord (Arpeggio)
+      const chord = [392.00, 493.88, 587.33, 783.99]; // G Major
+      chord.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+
+        gain.gain.setValueAtTime(0.5, now + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.6);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.12);
+        osc.stop(now + idx * 0.12 + 0.65);
+      });
+    }
+  } catch (err) {
+    console.warn('Audio playback error:', err);
+  }
+}
+
+// Game Review & Performance Elo Tracker
+let currentPositionCp = 0; // Perspective: White
+let moveQualityHistory = []; // { moveSan, color, cpBefore, cpAfter, centipawnLoss, quality }
+
 const BOT_PROFILES = {
   800:  { skill: 0,  depth: 1,  moveTime: 300, blunderRate: 0.35 },
   1100: { skill: 3,  depth: 2,  moveTime: 400, blunderRate: 0.18 },
@@ -32,7 +134,6 @@ const BOT_PROFILES = {
 
 // Rich Opening & Gambit Dictionary
 const OPENINGS_LIST = [
-  // Gambits
   { moves: ["e4", "e5", "f4"], name: "King's Gambit" },
   { moves: ["e4", "e5", "f4", "exf4"], name: "King's Gambit Accepted" },
   { moves: ["e4", "e5", "f4", "d5"], name: "Falkbeer Counter-Gambit" },
@@ -188,8 +289,10 @@ function setupStockfishListeners() {
         const mateText = `M${Math.abs(mateRaw)}`;
         document.getElementById('evalScore').textContent = mateRaw > 0 ? `+${mateText}` : `-${mateText}`;
         updateEvalBar(mateRaw > 0 ? 10 : -10, mateText);
+        currentPositionCp = mateRaw > 0 ? 1000 : -1000;
       } else if (scoreMatch) {
         const cpWhite = (parseInt(scoreMatch[1], 10) * turnMultiplier) / 100;
+        currentPositionCp = parseInt(scoreMatch[1], 10) * turnMultiplier;
         const sign = cpWhite > 0 ? '+' : '';
         const formatted = `${sign}${cpWhite.toFixed(2)}`;
         document.getElementById('evalScore').textContent = formatted;
@@ -378,10 +481,12 @@ function executeBotMove(uci) {
   const to = uci.slice(2, 4);
   const promotion = uci.length > 4 ? uci[4] : 'q';
 
+  recordMoveBeforeExecution();
   const move = game.move({ from, to, promotion });
   if (move) {
     redoStack = [];
     board.position(game.fen());
+    handleMoveEffects(move);
     updateUI();
   }
 }
@@ -408,7 +513,6 @@ function onDrop(source, target) {
   dragActive = false;
   lastDropTime = Date.now();
 
-  // Tap on the same square = select / deselect (click-to-move)
   if (source === target) {
     if (selectedSquare === source) {
       clearClickHighlights();
@@ -423,6 +527,7 @@ function onDrop(source, target) {
   clearClickHighlights();
   selectedSquare = null;
 
+  recordMoveBeforeExecution();
   const move = game.move({
     from: source,
     to: target,
@@ -432,6 +537,7 @@ function onDrop(source, target) {
   if (move === null) return 'snapback';
 
   redoStack = [];
+  handleMoveEffects(move);
   updateUI();
   checkBotTrigger();
 }
@@ -458,6 +564,7 @@ function handleSquareClick(square) {
       return;
     }
 
+    recordMoveBeforeExecution();
     const move = game.move({
       from: selectedSquare,
       to: square,
@@ -470,6 +577,7 @@ function handleSquareClick(square) {
     if (move) {
       redoStack = [];
       board.position(game.fen());
+      handleMoveEffects(move);
       updateUI();
       checkBotTrigger();
       return;
@@ -484,6 +592,120 @@ function handleSquareClick(square) {
 
   selectedSquare = square;
   showLegalDestinations(square);
+}
+
+// Sound effects and blunder/move quality evaluation
+let lastEvalBeforeMove = 0;
+function recordMoveBeforeExecution() {
+  lastEvalBeforeMove = currentPositionCp;
+}
+
+function handleMoveEffects(move) {
+  // Check sound triggers
+  if (game.in_checkmate()) {
+    playSound('checkmate');
+  } else if (game.in_check()) {
+    playSound('check');
+  } else if (move.captured) {
+    playSound('capture');
+  } else {
+    playSound('move');
+  }
+
+  // Calculate move quality (Blunder, Mistake, Inaccuracy, Good, Best)
+  const movedColor = move.color;
+  // Estimate centipawn difference
+  // Centipawn loss = how much eval dropped for the player who made the move
+  let diff = 0;
+  if (movedColor === 'w') {
+    diff = lastEvalBeforeMove - currentPositionCp;
+  } else {
+    diff = currentPositionCp - lastEvalBeforeMove;
+  }
+
+  let quality = 'good';
+  if (diff > 250) {
+    quality = 'blunder';
+  } else if (diff > 120) {
+    quality = 'mistake';
+  } else if (diff > 60) {
+    quality = 'inaccuracy';
+  } else if (diff < 15) {
+    quality = 'best';
+  }
+
+  moveQualityHistory.push({
+    san: move.san,
+    color: movedColor,
+    quality: quality,
+    loss: Math.max(0, diff)
+  });
+
+  updateGameReview();
+}
+
+function updateGameReview() {
+  if (moveQualityHistory.length === 0) {
+    document.getElementById('estEloVal').textContent = '-- Elo';
+    document.getElementById('accuracyVal').textContent = '--%';
+    document.getElementById('countBest').textContent = '0';
+    document.getElementById('countGood').textContent = '0';
+    document.getElementById('countInacc').textContent = '0';
+    document.getElementById('countMistake').textContent = '0';
+    document.getElementById('countBlunder').textContent = '0';
+    document.getElementById('whiteQualityStats').textContent = '0 Blunders • 0 Mistakes';
+    document.getElementById('blackQualityStats').textContent = '0 Blunders • 0 Mistakes';
+    return;
+  }
+
+  let counts = { best: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+  let whiteBlunders = 0, whiteMistakes = 0;
+  let blackBlunders = 0, blackMistakes = 0;
+  let totalLoss = 0;
+
+  for (const m of moveQualityHistory) {
+    counts[m.quality] = (counts[m.quality] || 0) + 1;
+    totalLoss += m.loss;
+
+    if (m.color === 'w') {
+      if (m.quality === 'blunder') whiteBlunders++;
+      if (m.quality === 'mistake') whiteMistakes++;
+    } else {
+      if (m.quality === 'blunder') blackBlunders++;
+      if (m.quality === 'mistake') blackMistakes++;
+    }
+  }
+
+  document.getElementById('countBest').textContent = counts.best;
+  document.getElementById('countGood').textContent = counts.good;
+  document.getElementById('countInacc').textContent = counts.inaccuracy;
+  document.getElementById('countMistake').textContent = counts.mistake;
+  document.getElementById('countBlunder').textContent = counts.blunder;
+
+  document.getElementById('whiteQualityStats').textContent = `${whiteBlunders} Blunders • ${whiteMistakes} Mistakes`;
+  document.getElementById('blackQualityStats').textContent = `${blackBlunders} Blunders • ${blackMistakes} Mistakes`;
+
+  // Accuracy calculation based on average centipawn loss
+  const avgLoss = totalLoss / moveQualityHistory.length;
+  // Formula: Accuracy = 100 * exp(-0.005 * avgLoss)
+  let accuracy = Math.round(100 * Math.exp(-0.0055 * avgLoss));
+  accuracy = Math.max(35, Math.min(99, accuracy));
+  document.getElementById('accuracyVal').textContent = `${accuracy}%`;
+
+  // Estimated Elo performance based on accuracy, blunders, and mistakes
+  let estElo = Math.round(600 + (accuracy - 35) * 28 - (counts.blunder * 35) - (counts.mistake * 15));
+  estElo = Math.max(700, Math.min(2750, estElo));
+  document.getElementById('estEloVal').textContent = `~${estElo} Elo`;
+
+  // Summary statement
+  const summaryEl = document.getElementById('reviewSummaryText');
+  if (counts.blunder === 0 && counts.mistake === 0) {
+    summaryEl.textContent = 'Spectacular accuracy! You are playing extremely clean, GM-tier chess.';
+  } else if (counts.blunder === 0) {
+    summaryEl.textContent = 'Solid game without catastrophic blunders. Keep focusing on positional precision.';
+  } else {
+    summaryEl.textContent = `Watch out: ${counts.blunder} blunder(s) and ${counts.mistake} mistake(s) detected. Check the Move List for move-by-move feedback.`;
+  }
 }
 
 function checkBotTrigger() {
@@ -515,6 +737,7 @@ function updateUI() {
     statusEl.style.color = '#4ade80';
   }
 
+  // Render Move History with Blunder / Quality badges
   const history = game.history();
   const emptyHtml = '<div class="move-list-empty">No moves yet</div>';
   if (history.length === 0) {
@@ -524,10 +747,19 @@ function updateUI() {
     let html = '';
     for (let i = 0; i < history.length; i += 2) {
       const moveNum = Math.floor(i / 2) + 1;
+      const whiteMove = history[i] || '';
+      const blackMove = history[i + 1] || '';
+
+      const whiteReview = moveQualityHistory[i];
+      const blackReview = moveQualityHistory[i + 1];
+
+      const whiteBadge = whiteReview ? `<span class="move-badge badge-${whiteReview.quality}">${whiteReview.quality}</span>` : '';
+      const blackBadge = blackReview ? `<span class="move-badge badge-${blackReview.quality}">${blackReview.quality}</span>` : '';
+
       html += `<div class="move-row">
         <span class="move-num">${moveNum}.</span>
-        <span>${history[i] || ''}</span>
-        <span>${history[i + 1] || ''}</span>
+        <span>${whiteMove} ${whiteBadge}</span>
+        <span>${blackMove} ${blackBadge}</span>
       </div>`;
     }
     document.getElementById('moveHistory').innerHTML = html;
@@ -565,6 +797,7 @@ function setGameMode(mode) {
 function startNewBotGame() {
   game.reset();
   redoStack = [];
+  moveQualityHistory = [];
   selectedSquare = null;
   isBotThinking = false;
   clearClickHighlights();
@@ -578,6 +811,7 @@ function startNewBotGame() {
 
   updateEvalBar(0, '0.0');
   document.getElementById('evalScore').textContent = '+0.00';
+  updateGameReview();
   updateUI();
 
   if (playerColor === 'b') {
@@ -613,7 +847,7 @@ $(document).ready(function() {
     if (dragActive) return;
     if (Date.now() - lastDropTime < 400) return;
     if (e.type === 'click' && Date.now() - lastTouchTime < 450) {
-      return; // prevent duplicate trigger after touch
+      return;
     }
     const square = $(this).attr('data-square');
     if (square) {
@@ -649,6 +883,14 @@ $(document).ready(function() {
     botRating = parseInt(e.target.value, 10);
   });
 
+  // Sound Toggle Button
+  document.getElementById('soundToggleBtn').addEventListener('click', (e) => {
+    soundEnabled = !soundEnabled;
+    e.target.textContent = soundEnabled ? '🔊 Sound: ON' : '🔇 Sound: OFF';
+    e.target.classList.toggle('active-pill', soundEnabled);
+    if (soundEnabled) playSound('move');
+  });
+
   // Undo Button
   document.getElementById('undoBtn').addEventListener('click', () => {
     if (isBotThinking) return;
@@ -658,11 +900,17 @@ $(document).ready(function() {
     if (currentMode === 'bot') {
       game.undo();
       game.undo();
+      moveQualityHistory.pop();
+      moveQualityHistory.pop();
     } else {
       const move = game.undo();
-      if (move) redoStack.push(move);
+      if (move) {
+        redoStack.push(move);
+        moveQualityHistory.pop();
+      }
     }
     board.position(game.fen());
+    updateGameReview();
     updateUI();
   });
 
@@ -696,10 +944,12 @@ $(document).ready(function() {
     const to = currentBestMoveUci.slice(2, 4);
     const promotion = currentBestMoveUci.length > 4 ? currentBestMoveUci[4] : 'q';
 
+    recordMoveBeforeExecution();
     const move = game.move({ from, to, promotion });
     if (move) {
       redoStack = [];
       board.position(game.fen());
+      handleMoveEffects(move);
       updateUI();
     }
   });
@@ -708,6 +958,7 @@ $(document).ready(function() {
   document.getElementById('resetBtn').addEventListener('click', () => {
     clearClickHighlights();
     selectedSquare = null;
+    moveQualityHistory = [];
     if (currentMode === 'bot') {
       startNewBotGame();
     } else {
@@ -716,6 +967,7 @@ $(document).ready(function() {
       board.start();
       updateEvalBar(0, '0.0');
       document.getElementById('evalScore').textContent = '+0.00';
+      updateGameReview();
       updateUI();
     }
   });
@@ -742,9 +994,11 @@ $(document).ready(function() {
     const fen = document.getElementById('fenInput').value.trim();
     if (fen && game.load(fen)) {
       redoStack = [];
+      moveQualityHistory = [];
       clearClickHighlights();
       selectedSquare = null;
       board.position(game.fen());
+      updateGameReview();
       updateUI();
     } else {
       alert('Invalid FEN string!');
