@@ -1,102 +1,231 @@
-const boardEl = document.getElementById("chessboard");
-const historyEl = document.getElementById("moveHistory");
+// B-CHESS Interactive Analyzer Script
+// Fixed Piece Image Rendering using reliable Wikipedia SVG/PNG CDN
 
-const start = [
-  ["br","bn","bb","bq","bk","bb","bn","br"],
-  ["bp","bp","bp","bp","bp","bp","bp","bp"],
-  ["","","","","","","",""],
-  ["","","","","","","",""],
-  ["","","","","","","",""],
-  ["","","","","","","",""],
-  ["wp","wp","wp","wp","wp","wp","wp","wp"],
-  ["wr","wn","wb","wq","wk","wb","wn","wr"]
-];
+let board = null;
+const game = new Chess();
+let redoStack = [];
+let stockfish = null;
 
-const pieceNames = {
-  wk:"white-k", wq:"white-q", wr:"white-r", wb:"white-b", wn:"white-n", wp:"white-p",
-  bk:"black-k", bq:"black-q", br:"black-r", bb:"black-b", bn:"black-n", bp:"black-p"
+// Common Openings Dictionary
+const OPENINGS = {
+  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR": "King's Pawn Opening (1. e4)",
+  "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR": "Queen's Pawn Opening (1. d4)",
+  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR": "Open Game (1. e4 e5)",
+  "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR": "Sicilian Defense (1. e4 c5)",
+  "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R": "King's Knight Opening",
+  "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R": "Open Game: 2. Nf3 Nc6",
+  "r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R": "Scotch Game (3. d4)",
+  "r1bqkbnr/pppp1ppp/2n5/8/3pP3/5N2/PPP2PPP/RNBQKB1R": "Scotch Game Accepted",
+  "r1bqkbnr/pppp1ppp/2n5/8/2BpP3/5N2/PPP2PPP/RNBQK2R": "Scotch Gambit (4. Bc4)",
+  "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R": "Ruy Lopez (Spanish)",
+  "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R": "Italian Game (Giuoco Piano)"
 };
 
-let position = structuredClone(start);
-let flipped = false;
-let selected = null;
-let moves = [];
+// Initialize Stockfish Web Worker via Blob for cross-origin compatibility on GitHub Pages
+function initStockfish() {
+  try {
+    const workerCode = `importScripts('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');`;
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    stockfish = new Worker(URL.createObjectURL(blob));
 
-function renderBoard(){
-  boardEl.innerHTML = "";
-  const rows = [...Array(8).keys()];
-  const cols = [...Array(8).keys()];
-  if(flipped){ rows.reverse(); cols.reverse(); }
+    stockfish.onmessage = function(event) {
+      const line = event.data;
+      if (typeof line !== 'string') return;
 
-  rows.forEach(r=>{
-    cols.forEach(c=>{
-      const sq=document.createElement("button");
-      sq.className="square "+(((r+c)%2===0)?"light":"dark");
-      sq.dataset.r=r; sq.dataset.c=c;
+      if (line.startsWith('info depth')) {
+        const depthMatch = line.match(/depth (\d+)/);
+        const scoreMatch = line.match(/score cp (-?\d+)/);
+        const mateMatch = line.match(/score mate (-?\d+)/);
 
-      if(selected && selected.r===r && selected.c===c) sq.classList.add("selected");
+        if (depthMatch) {
+          document.getElementById('depthVal').textContent = depthMatch[1];
+        }
 
-      const piece=position[r][c];
-      if(piece){
-        const img=document.createElement("img");
-        img.className="piece";
-        img.alt="";
-        img.src=`pieces/${pieceNames[piece]}.png`;
-        sq.appendChild(img);
+        if (mateMatch) {
+          const mateIn = parseInt(mateMatch[1], 10);
+          document.getElementById('evalScore').textContent = `M${Math.abs(mateIn)}`;
+        } else if (scoreMatch) {
+          let cp = parseInt(scoreMatch[1], 10) / 100;
+          if (game.turn() === 'b') cp = -cp;
+          const sign = cp > 0 ? '+' : '';
+          document.getElementById('evalScore').textContent = `${sign}${cp.toFixed(2)}`;
+        }
       }
-      sq.addEventListener("click",()=>selectSquare(r,c));
-      boardEl.appendChild(sq);
-    });
-  });
+
+      if (line.startsWith('bestmove')) {
+        const parts = line.split(' ');
+        const bestMoveUci = parts[1];
+        if (bestMoveUci && bestMoveUci !== '(none)') {
+          document.getElementById('bestMoveText').textContent = formatUciMove(bestMoveUci);
+          document.getElementById('engineSubtext').textContent = `Recommended by Stockfish 10`;
+        } else {
+          document.getElementById('bestMoveText').textContent = 'Game Over';
+        }
+      }
+    };
+
+    stockfish.postMessage('uci');
+    analyzePosition();
+  } catch (err) {
+    console.warn('Stockfish worker fallback:', err);
+    document.getElementById('bestMoveText').textContent = 'Ready';
+  }
 }
 
-function selectSquare(r,c){
-  if(!selected){
-    if(position[r][c]){ selected={r,c}; renderBoard(); }
+function formatUciMove(uci) {
+  if (!uci || uci.length < 4) return uci;
+  return `${uci.slice(0, 2)} → ${uci.slice(2, 4)}`;
+}
+
+function analyzePosition() {
+  if (!stockfish) return;
+  if (game.game_over()) {
+    document.getElementById('bestMoveText').textContent = 'Game Over';
     return;
   }
-  if(selected.r===r && selected.c===c){ selected=null; renderBoard(); return; }
+  document.getElementById('bestMoveText').textContent = 'Thinking...';
+  stockfish.postMessage('stop');
+  stockfish.postMessage('position fen ' + game.fen());
+  stockfish.postMessage('go depth 14');
+}
 
-  const moving=position[selected.r][selected.c];
-  const target=position[r][c];
-
-  // Visual move preview only in this build; full legal chess rules come next.
-  if(moving && (!target || moving[0]!==target[0])){
-    position[r][c]=moving;
-    position[selected.r][selected.c]="";
-    moves.push(`${squareName(selected.r,selected.c)}${squareName(r,c)}`);
-    historyEl.textContent=moves.join("  ");
+function onDragStart(source, piece) {
+  if (game.game_over()) return false;
+  if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+      (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+    return false;
   }
-  selected=null;
-  renderBoard();
 }
 
-function squareName(r,c){
-  return "abcdefgh"[c]+(8-r);
+function onDrop(source, target) {
+  const move = game.move({
+    from: source,
+    to: target,
+    promotion: 'q'
+  });
+
+  if (move === null) return 'snapback';
+
+  redoStack = [];
+  updateUI();
 }
 
-document.getElementById("flipBtn").onclick=()=>{
-  flipped=!flipped; selected=null; renderBoard();
-};
-document.getElementById("resetBtn").onclick=()=>{
-  position=structuredClone(start); moves=[]; selected=null;
-  historyEl.textContent="No moves yet"; renderBoard();
-};
-document.getElementById("undoBtn").onclick=()=>alert("Full Undo/Redo will be enabled with the legal move system.");
-document.getElementById("redoBtn").onclick=()=>alert("Full Undo/Redo will be enabled with the legal move system.");
+function onSnapEnd() {
+  board.position(game.fen());
+}
 
-const themes=[
-  ["Green & White",""],
-  ["Black & White","theme-black"],
-  ["Premium Wood","theme-premium"]
-];
-let themeIndex=0;
-document.getElementById("themeBtn").onclick=()=>{
-  document.body.classList.remove("theme-black","theme-premium");
-  themeIndex=(themeIndex+1)%themes.length;
-  const [label,cls]=themes[themeIndex];
-  if(cls) document.body.classList.add(cls);
-  document.getElementById("themeBtn").innerHTML=`${label} <span>⌄</span>`;
-};
+function updateUI() {
+  // Update Opening Name
+  const fenBoard = game.fen().split(' ')[0];
+  if (game.history().length === 0) {
+    document.getElementById('openingName').textContent = 'Starting';
+  } else if (OPENINGS[fenBoard]) {
+    document.getElementById('openingName').textContent = OPENINGS[fenBoard];
+  }
 
-renderBoard();
+  // Update Game Status
+  const statusEl = document.getElementById('gameStatus');
+  if (game.in_checkmate()) {
+    statusEl.textContent = 'Checkmate!';
+    statusEl.style.color = '#f87171';
+  } else if (game.in_draw()) {
+    statusEl.textContent = 'Draw';
+    statusEl.style.color = '#fbbf24';
+  } else if (game.in_check()) {
+    statusEl.textContent = 'Check!';
+    statusEl.style.color = '#fb923c';
+  } else {
+    statusEl.textContent = `${game.turn() === 'w' ? 'White' : 'Black'} to move`;
+    statusEl.style.color = '#4ade80';
+  }
+
+  // Update Move History List
+  const history = game.history();
+  const container = document.getElementById('moveHistory');
+  if (history.length === 0) {
+    container.innerHTML = '<div class="move-list-empty">No moves yet</div>';
+  } else {
+    let html = '';
+    for (let i = 0; i < history.length; i += 2) {
+      const moveNum = Math.floor(i / 2) + 1;
+      const whiteMove = history[i] || '';
+      const blackMove = history[i + 1] || '';
+      html += `<div class="move-row">
+        <span class="move-num">${moveNum}.</span>
+        <span>${whiteMove}</span>
+        <span>${blackMove}</span>
+      </div>`;
+    }
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+  }
+
+  analyzePosition();
+}
+
+// Initialize Board with FIXED pieceTheme CDN URL so pieces NEVER break on GitHub Pages
+$(document).ready(function() {
+  const config = {
+    draggable: true,
+    position: 'start',
+    // Direct CDN URL fixes the broken image icons on GitHub Pages subfolders
+    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+    onDragStart: onDragStart,
+    onDrop: onDrop,
+    onSnapEnd: onSnapEnd
+  };
+
+  board = Chessboard('myBoard', config);
+  $(window).resize(board.resize);
+
+  initStockfish();
+  updateUI();
+
+  // Control Buttons
+  document.getElementById('undoBtn').addEventListener('click', () => {
+    const move = game.undo();
+    if (move) {
+      redoStack.push(move);
+      board.position(game.fen());
+      updateUI();
+    }
+  });
+
+  document.getElementById('redoBtn').addEventListener('click', () => {
+    if (redoStack.length > 0) {
+      const move = redoStack.pop();
+      game.move(move);
+      board.position(game.fen());
+      updateUI();
+    }
+  });
+
+  document.getElementById('flipBtn').addEventListener('click', () => {
+    board.flip();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    game.reset();
+    redoStack = [];
+    board.start();
+    document.getElementById('evalScore').textContent = '+0.00';
+    updateUI();
+  });
+
+  document.getElementById('loadFenBtn').addEventListener('click', () => {
+    const fen = document.getElementById('fenInput').value.trim();
+    if (fen && game.load(fen)) {
+      redoStack = [];
+      board.position(game.fen());
+      updateUI();
+    } else {
+      alert('Invalid FEN string!');
+    }
+  });
+
+  document.getElementById('themeBtn').addEventListener('click', (e) => {
+    document.body.classList.toggle('wood-theme');
+    const isWood = document.body.classList.contains('wood-theme');
+    e.target.textContent = isWood ? 'Wood & Cream' : 'Green & White';
+  });
+});

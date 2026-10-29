@@ -1,71 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chess Analyzer</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chess Analyzer — B-CHESS</title>
+  <!-- Chessboard.js CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="app-shell">
-    <header class="topbar">
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="top-bar">
       <div class="brand">
-        <div class="brand-mark">♟</div>
+        <span class="pawn-icon">♟</span>
         <div>
           <h1>Chess Analyzer</h1>
-          <p>Interactive board preview</p>
+          <p>Interactive board preview & Stockfish analysis</p>
         </div>
       </div>
-      <button class="theme-btn" id="themeBtn">Green &amp; White <span>⌄</span></button>
+      <div class="theme-controls">
+        <button id="themeBtn" class="pill-btn">Green & White</button>
+      </div>
     </header>
 
-    <section class="workspace">
+    <!-- Main Content -->
+    <main class="main-grid">
+      <!-- Left: Chessboard Section -->
       <section class="board-card">
-        <div class="board-wrap">
-          <div id="chessboard" class="chessboard" aria-label="Chess board"></div>
-        </div>
-
-        <div class="controls">
-          <button id="undoBtn">↶ <span>Undo</span></button>
-          <button id="redoBtn">↷ <span>Redo</span></button>
-          <button id="flipBtn">↕ <span>Flip</span></button>
-          <button id="resetBtn">⟳ <span>Reset</span></button>
+        <div id="myBoard" class="board-wrapper"></div>
+        <div class="board-controls">
+          <button id="undoBtn" class="control-btn">↩ Undo</button>
+          <button id="redoBtn" class="control-btn">↪ Redo</button>
+          <button id="flipBtn" class="control-btn">⇅ Flip</button>
+          <button id="resetBtn" class="control-btn active-outline">↺ Reset</button>
         </div>
       </section>
 
-      <aside class="analysis-card">
-        <nav class="tabs">
-          <button class="active">Analysis</button>
-          <button>Move List</button>
-          <button>Evaluation</button>
-        </nav>
-
-        <div class="best-card">
-          <div class="label">Best Move</div>
-          <div class="waiting">Waiting...</div>
-          <div class="muted">Stockfish will be added in the next build step.</div>
+      <!-- Right: Analysis Panel -->
+      <section class="analysis-card">
+        <div class="tabs">
+          <button class="tab active" data-tab="analysis">Analysis</button>
+          <button class="tab" data-tab="moves">Move List</button>
+          <button class="tab" data-tab="eval">Evaluation</button>
         </div>
 
-        <div class="stat-grid">
-          <div class="stat"><span>Evaluation</span><strong>+0.00</strong></div>
-          <div class="stat"><span>Depth</span><strong>–</strong></div>
-          <div class="stat"><span>Opening</span><strong>Starting</strong></div>
-          <div class="stat"><span>Status</span><strong class="ready">Ready</strong></div>
+        <div class="panel-box best-move-box">
+          <span class="label">Best Move</span>
+          <h2 id="bestMoveText">Calculating...</h2>
+          <p id="engineSubtext">Browser-based Stockfish engine active.</p>
         </div>
 
-        <div class="history">
-          <h3>Move History</h3>
-          <div id="moveHistory" class="empty">No moves yet</div>
+        <div class="stats-grid">
+          <div class="panel-box">
+            <span class="label">Evaluation</span>
+            <div class="stat-val" id="evalScore">+0.00</div>
+          </div>
+          <div class="panel-box">
+            <span class="label">Depth</span>
+            <div class="stat-val" id="depthVal">14</div>
+          </div>
+          <div class="panel-box">
+            <span class="label">Opening</span>
+            <div class="stat-val" id="openingName">Starting Position</div>
+          </div>
+          <div class="panel-box">
+            <span class="label">Status</span>
+            <div class="stat-val status-ready" id="gameStatus">Ready</div>
+          </div>
         </div>
 
-        <div class="free-card">
+        <div class="panel-box history-box">
+          <span class="label">Move History</span>
+          <div id="moveHistory" class="move-list-empty">No moves yet</div>
+        </div>
+
+        <div class="panel-box pgn-box">
+          <span class="label">Load FEN / PGN</span>
+          <div class="fen-input-row">
+            <input type="text" id="fenInput" placeholder="Paste FEN string here..." />
+            <button id="loadFenBtn" class="control-btn">Load</button>
+          </div>
+        </div>
+
+        <div class="panel-box footer-box">
           <strong>Free Chess Analyzer</strong>
-          <span>Built for browser-based Stockfish analysis.</span>
+          <p>Built for browser-based Stockfish analysis. Fixed piece rendering for GitHub Pages.</p>
         </div>
-      </aside>
-    </section>
-  </main>
+      </section>
+    </main>
+  </div>
 
+  <!-- Required Libraries: jQuery, Chess.js, Chessboard.js -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
