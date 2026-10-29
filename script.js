@@ -1,4 +1,4 @@
-// B-CHESS PRO — Stockfish Engine + Live Evaluation Bar + Best Move Arrow Indicator
+// B-CHESS PRO — Stockfish Engine + Live Evaluation Bar + Click-to-Move + Play vs Bot
 
 let board = null;
 const game = new Chess();
@@ -8,6 +8,25 @@ let engineReady = false;
 let currentBestMoveUci = null;
 let showBestMoveArrow = true;
 let targetDepth = 15;
+
+// Click-to-Move state
+let selectedSquare = null;
+
+// Game Mode State: 'analysis' or 'bot'
+let currentMode = 'analysis';
+let playerColor = 'w'; // 'w' or 'b'
+let botRating = 1400;  // 800, 1100, 1400, 1700, 2000, 2500
+let isBotThinking = false;
+
+// Bot skill mapping: Stockfish Skill Level (0-20), search depth, move time (ms), random blunder chance
+const BOT_PROFILES = {
+  800:  { skill: 0,  depth: 1,  moveTime: 300, blunderRate: 0.35 },
+  1100: { skill: 3,  depth: 2,  moveTime: 400, blunderRate: 0.18 },
+  1400: { skill: 6,  depth: 4,  moveTime: 500, blunderRate: 0.06 },
+  1700: { skill: 10, depth: 7,  moveTime: 650, blunderRate: 0.01 },
+  2000: { skill: 15, depth: 10, moveTime: 800, blunderRate: 0.00 },
+  2500: { skill: 20, depth: 14, moveTime: 1000, blunderRate: 0.00 }
+};
 
 const OPENINGS = {
   "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR": "King's Pawn Opening (1. e4)",
@@ -23,7 +42,7 @@ const OPENINGS = {
   "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R": "Italian Game"
 };
 
-// 1. Initialize Stockfish Engine via Fetch + Blob (Works 100% on GitHub Pages without CORS block)
+// 1. Initialize Stockfish Engine via Fetch + Blob
 async function initStockfish() {
   const urls = [
     'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js',
@@ -57,7 +76,9 @@ function setupStockfishListeners() {
     if (line === 'uciok') {
       engineReady = true;
       document.getElementById('engineBadge').textContent = 'Stockfish 10 Ready';
-      analyzePosition();
+      if (currentMode === 'analysis') {
+        analyzePosition();
+      }
     }
 
     if (line.startsWith('info depth')) {
@@ -75,8 +96,10 @@ function setupStockfishListeners() {
         const topUci = pvMoves[0];
         if (topUci && topUci.length >= 4) {
           currentBestMoveUci = topUci;
-          updateBestMoveDisplay(topUci);
-          drawBestMoveArrow(topUci);
+          if (currentMode === 'analysis') {
+            updateBestMoveDisplay(topUci);
+            drawBestMoveArrow(topUci);
+          }
         }
         document.getElementById('pvLineText').textContent = `Engine Line: ${pvMoves.slice(0, 5).join(' → ')}`;
       }
@@ -101,22 +124,31 @@ function setupStockfishListeners() {
     if (line.startsWith('bestmove')) {
       const parts = line.split(' ');
       const bestUci = parts[1];
+
+      if (currentMode === 'bot' && isBotThinking) {
+        isBotThinking = false;
+        executeBotMove(bestUci);
+        return;
+      }
+
       if (bestUci && bestUci !== '(none)') {
         currentBestMoveUci = bestUci;
-        updateBestMoveDisplay(bestUci);
-        drawBestMoveArrow(bestUci);
+        if (currentMode === 'analysis') {
+          updateBestMoveDisplay(bestUci);
+          drawBestMoveArrow(bestUci);
+        }
       }
     }
   };
 }
 
-// Convert UCI (e.g., "g1f3") into readable instruction ("Nf3 (g1 → f3)")
+// Convert UCI into readable instruction
 function updateBestMoveDisplay(uci) {
+  if (!uci || uci.length < 4) return;
   const from = uci.slice(0, 2);
   const to = uci.slice(2, 4);
   const promotion = uci.length > 4 ? uci[4] : 'q';
 
-  // Test move on a temporary clone to get SAN notation (like "Nf3" or "Bc4")
   const tempGame = new Chess(game.fen());
   const moveObj = tempGame.move({ from, to, promotion });
   const sanText = moveObj ? moveObj.san : `${from}→${to}`;
@@ -127,15 +159,12 @@ function updateBestMoveDisplay(uci) {
 
 // Update Live Evaluation Bar & Win Probability
 function updateEvalBar(cpWhite, displayScore) {
-  // Clamp between -10 and +10 pawns for visual bar height
   const clamped = Math.max(-10, Math.min(10, cpWhite));
-  // Sigmoid-like mapping to percentage (50% = 0.00)
   const whitePercent = 50 + (clamped / 10) * 46;
 
   document.getElementById('evalBarWhite').style.height = `${whitePercent}%`;
   document.getElementById('evalBarText').textContent = displayScore;
 
-  // Update Evaluation Tab Win Probability
   const wProb = Math.round(whitePercent);
   const bProb = 100 - wProb;
   document.getElementById('whiteProbBar').style.width = `${wProb}%`;
@@ -151,12 +180,12 @@ function updateEvalBar(cpWhite, displayScore) {
   else explainEl.textContent = 'Position is approximately equal.';
 }
 
-// Draw Best Move Arrow & Square Highlights on the Board
+// Draw Best Move Arrow
 function drawBestMoveArrow(uci) {
   clearHighlights();
   const arrowEl = document.getElementById('bestMoveArrow');
 
-  if (!showBestMoveArrow || !uci || uci.length < 4 || game.game_over()) {
+  if (!showBestMoveArrow || currentMode === 'bot' || !uci || uci.length < 4 || game.game_over()) {
     arrowEl.setAttribute('visibility', 'hidden');
     return;
   }
@@ -164,11 +193,9 @@ function drawBestMoveArrow(uci) {
   const from = uci.slice(0, 2);
   const to = uci.slice(2, 4);
 
-  // Highlight source and target squares
   $(`#myBoard .square-${from}`).addClass('highlight-from');
   $(`#myBoard .square-${to}`).addClass('highlight-to');
 
-  // Calculate SVG coordinates (0 to 100 viewBox)
   const coordsFrom = squareToSvgCoords(from);
   const coordsTo = squareToSvgCoords(to);
 
@@ -180,8 +207,8 @@ function drawBestMoveArrow(uci) {
 }
 
 function squareToSvgCoords(square) {
-  const file = square.charCodeAt(0) - 97; // 'a' -> 0 ... 'h' -> 7
-  const rank = parseInt(square[1], 10) - 1; // '1' -> 0 ... '8' -> 7
+  const file = square.charCodeAt(0) - 97;
+  const rank = parseInt(square[1], 10) - 1;
   const orientation = board.orientation();
 
   let col, row;
@@ -203,6 +230,25 @@ function clearHighlights() {
   $('#myBoard .square-55d63').removeClass('highlight-from highlight-to');
 }
 
+function clearClickHighlights() {
+  $('#myBoard .square-55d63').removeClass('square-selected legal-dest-dot legal-dest-capture');
+}
+
+function showLegalDestinations(sourceSquare) {
+  clearClickHighlights();
+  $(`#myBoard .square-${sourceSquare}`).addClass('square-selected');
+
+  const legalMoves = game.moves({ square: sourceSquare, verbose: true });
+  for (const m of legalMoves) {
+    const $target = $(`#myBoard .square-${m.to}`);
+    if (m.captured) {
+      $target.addClass('legal-dest-capture');
+    } else {
+      $target.addClass('legal-dest-dot');
+    }
+  }
+}
+
 function analyzePosition() {
   if (!stockfish || !engineReady) return;
   if (game.game_over()) {
@@ -213,19 +259,84 @@ function analyzePosition() {
 
   document.getElementById('bestMoveText').textContent = 'Analyzing...';
   stockfish.postMessage('stop');
+  stockfish.postMessage('setoption name Skill Level value 20');
   stockfish.postMessage('position fen ' + game.fen());
   stockfish.postMessage('go depth ' + targetDepth);
 }
 
+// BOT LOGIC: Configure Stockfish according to selected Elo rating
+function requestBotMove() {
+  if (game.game_over() || !stockfish || !engineReady) return;
+  isBotThinking = true;
+
+  document.getElementById('bestMoveText').textContent = `Bot (${botRating}) is thinking...`;
+  document.getElementById('engineSubtext').textContent = 'Calculating response...';
+  document.getElementById('pvLineText').textContent = 'Bot turn in progress...';
+  document.getElementById('bestMoveArrow').setAttribute('visibility', 'hidden');
+
+  const profile = BOT_PROFILES[botRating] || BOT_PROFILES[1400];
+
+  // Optional blunder calculation for lower ratings
+  if (Math.random() < profile.blunderRate) {
+    const legalMoves = game.moves({ verbose: true });
+    if (legalMoves.length > 0) {
+      // Pick a random legal move with slight delay
+      const randomMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
+      setTimeout(() => {
+        if (!isBotThinking) return;
+        isBotThinking = false;
+        const uciMove = randomMove.from + randomMove.to + (randomMove.promotion || '');
+        executeBotMove(uciMove);
+      }, profile.moveTime);
+      return;
+    }
+  }
+
+  stockfish.postMessage('stop');
+  stockfish.postMessage(`setoption name Skill Level value ${profile.skill}`);
+  stockfish.postMessage('position fen ' + game.fen());
+  stockfish.postMessage(`go depth ${profile.depth} movetime ${profile.moveTime}`);
+}
+
+function executeBotMove(uci) {
+  if (!uci || uci === '(none)') {
+    isBotThinking = false;
+    return;
+  }
+
+  const from = uci.slice(0, 2);
+  const to = uci.slice(2, 4);
+  const promotion = uci.length > 4 ? uci[4] : 'q';
+
+  const move = game.move({ from, to, promotion });
+  if (move) {
+    redoStack = [];
+    board.position(game.fen());
+    updateUI();
+  }
+}
+
+// Drag & Drop Handlers
 function onDragStart(source, piece) {
   if (game.game_over()) return false;
+  if (isBotThinking) return false;
+
+  // Turn check
   if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
       (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+    return false;
+  }
+
+  // Play vs Bot mode: only allow human color
+  if (currentMode === 'bot' && game.turn() !== playerColor) {
     return false;
   }
 }
 
 function onDrop(source, target) {
+  clearClickHighlights();
+  selectedSquare = null;
+
   const move = game.move({
     from: source,
     to: target,
@@ -236,10 +347,69 @@ function onDrop(source, target) {
 
   redoStack = [];
   updateUI();
+  checkBotTrigger();
 }
 
 function onSnapEnd() {
   board.position(game.fen());
+}
+
+// CLICK-TO-MOVE HANDLER: Allows clicking a piece, then clicking destination
+function handleSquareClick(square) {
+  if (game.game_over() || isBotThinking) return;
+
+  // Check if user is trying to click a destination for currently selected piece
+  if (selectedSquare) {
+    // If clicked on another piece of the same side, switch selection
+    const clickedPiece = game.get(square);
+    if (clickedPiece && clickedPiece.color === game.turn() &&
+        (currentMode !== 'bot' || clickedPiece.color === playerColor)) {
+      selectedSquare = square;
+      showLegalDestinations(square);
+      return;
+    }
+
+    // Attempt the move
+    const move = game.move({
+      from: selectedSquare,
+      to: square,
+      promotion: 'q'
+    });
+
+    clearClickHighlights();
+    selectedSquare = null;
+
+    if (move) {
+      redoStack = [];
+      board.position(game.fen());
+      updateUI();
+      checkBotTrigger();
+      return;
+    }
+  }
+
+  // First click: selecting a piece
+  const piece = game.get(square);
+  if (!piece) return;
+
+  // Ensure it's active side's piece
+  if (piece.color !== game.turn()) return;
+
+  // If in bot mode, ensure it's human player's piece
+  if (currentMode === 'bot' && piece.color !== playerColor) return;
+
+  selectedSquare = square;
+  showLegalDestinations(square);
+}
+
+function checkBotTrigger() {
+  if (currentMode === 'bot' && !game.game_over()) {
+    if (game.turn() !== playerColor) {
+      setTimeout(() => {
+        requestBotMove();
+      }, 250);
+    }
+  }
 }
 
 function updateUI() {
@@ -285,7 +455,61 @@ function updateUI() {
     document.getElementById('quickMoveHistory').innerHTML = html;
   }
 
-  analyzePosition();
+  if (currentMode === 'analysis') {
+    analyzePosition();
+  }
+}
+
+function setGameMode(mode) {
+  currentMode = mode;
+  selectedSquare = null;
+  clearClickHighlights();
+
+  if (mode === 'bot') {
+    document.getElementById('modeBotBtn').classList.add('active');
+    document.getElementById('modeAnalyzeBtn').classList.remove('active');
+    document.getElementById('botControls').style.display = 'flex';
+    document.getElementById('playBestBtn').style.display = 'none';
+    document.getElementById('panelPrimaryLabel').textContent = 'Bot Status';
+    document.getElementById('bestMoveArrow').setAttribute('visibility', 'hidden');
+    clearHighlights();
+  } else {
+    document.getElementById('modeAnalyzeBtn').classList.add('active');
+    document.getElementById('modeBotBtn').classList.remove('active');
+    document.getElementById('botControls').style.display = 'none';
+    document.getElementById('playBestBtn').style.display = 'block';
+    document.getElementById('panelPrimaryLabel').textContent = 'Best Move Suggestion';
+    analyzePosition();
+  }
+}
+
+function startNewBotGame() {
+  game.reset();
+  redoStack = [];
+  selectedSquare = null;
+  isBotThinking = false;
+  clearClickHighlights();
+  clearHighlights();
+
+  playerColor = document.getElementById('botSideSelect').value;
+  botRating = parseInt(document.getElementById('botRatingSelect').value, 10);
+
+  board.orientation(playerColor === 'w' ? 'white' : 'black');
+  board.start();
+
+  updateEvalBar(0, '0.0');
+  document.getElementById('evalScore').textContent = '+0.00';
+  updateUI();
+
+  if (playerColor === 'b') {
+    setTimeout(() => {
+      requestBotMove();
+    }, 400);
+  } else {
+    document.getElementById('bestMoveText').textContent = 'Your turn!';
+    document.getElementById('engineSubtext').textContent = `Playing against Stockfish bot (Rating: ${botRating})`;
+    document.getElementById('pvLineText').textContent = 'Make your opening move...';
+  }
 }
 
 $(document).ready(function() {
@@ -299,26 +523,66 @@ $(document).ready(function() {
   };
 
   board = Chessboard('myBoard', config);
+
+  // Bind click-to-move listener on board squares
+  $('#myBoard').on('click', '.square-55d63', function() {
+    const square = $(this).attr('data-square');
+    if (square) {
+      handleSquareClick(square);
+    }
+  });
+
   $(window).resize(() => {
     board.resize();
-    if (currentBestMoveUci) drawBestMoveArrow(currentBestMoveUci);
+    if (currentBestMoveUci && currentMode === 'analysis') {
+      drawBestMoveArrow(currentBestMoveUci);
+    }
   });
 
   initStockfish();
   updateUI();
 
+  // Mode Switchers
+  document.getElementById('modeAnalyzeBtn').addEventListener('click', () => {
+    setGameMode('analysis');
+  });
+
+  document.getElementById('modeBotBtn').addEventListener('click', () => {
+    setGameMode('bot');
+    startNewBotGame();
+  });
+
+  document.getElementById('startBotGameBtn').addEventListener('click', () => {
+    startNewBotGame();
+  });
+
+  document.getElementById('botRatingSelect').addEventListener('change', (e) => {
+    botRating = parseInt(e.target.value, 10);
+  });
+
   // Undo Button
   document.getElementById('undoBtn').addEventListener('click', () => {
-    const move = game.undo();
-    if (move) {
-      redoStack.push(move);
-      board.position(game.fen());
-      updateUI();
+    if (isBotThinking) return;
+    clearClickHighlights();
+    selectedSquare = null;
+
+    if (currentMode === 'bot') {
+      // Undo two moves in bot mode (bot move + player move)
+      game.undo();
+      game.undo();
+    } else {
+      const move = game.undo();
+      if (move) redoStack.push(move);
     }
+    board.position(game.fen());
+    updateUI();
   });
 
   // Redo Button
   document.getElementById('redoBtn').addEventListener('click', () => {
+    if (currentMode === 'bot' || isBotThinking) return;
+    clearClickHighlights();
+    selectedSquare = null;
     if (redoStack.length > 0) {
       const move = redoStack.pop();
       game.move(move);
@@ -330,12 +594,16 @@ $(document).ready(function() {
   // Flip Board
   document.getElementById('flipBtn').addEventListener('click', () => {
     board.flip();
-    if (currentBestMoveUci) drawBestMoveArrow(currentBestMoveUci);
+    if (currentBestMoveUci && currentMode === 'analysis') {
+      drawBestMoveArrow(currentBestMoveUci);
+    }
   });
 
-  // Play Best Move Button (Automatically plays Stockfish's recommended move!)
+  // Play Best Move Button
   document.getElementById('playBestBtn').addEventListener('click', () => {
-    if (!currentBestMoveUci || game.game_over()) return;
+    if (currentMode === 'bot' || !currentBestMoveUci || game.game_over()) return;
+    clearClickHighlights();
+    selectedSquare = null;
     const from = currentBestMoveUci.slice(0, 2);
     const to = currentBestMoveUci.slice(2, 4);
     const promotion = currentBestMoveUci.length > 4 ? currentBestMoveUci[4] : 'q';
@@ -350,12 +618,18 @@ $(document).ready(function() {
 
   // Reset Button
   document.getElementById('resetBtn').addEventListener('click', () => {
-    game.reset();
-    redoStack = [];
-    board.start();
-    updateEvalBar(0, '0.0');
-    document.getElementById('evalScore').textContent = '+0.00';
-    updateUI();
+    clearClickHighlights();
+    selectedSquare = null;
+    if (currentMode === 'bot') {
+      startNewBotGame();
+    } else {
+      game.reset();
+      redoStack = [];
+      board.start();
+      updateEvalBar(0, '0.0');
+      document.getElementById('evalScore').textContent = '+0.00';
+      updateUI();
+    }
   });
 
   // Toggle Best Move Arrow
@@ -363,7 +637,9 @@ $(document).ready(function() {
     showBestMoveArrow = !showBestMoveArrow;
     e.target.textContent = showBestMoveArrow ? '🏹 Arrow: ON' : '🏹 Arrow: OFF';
     e.target.classList.toggle('active-pill', showBestMoveArrow);
-    if (currentBestMoveUci) drawBestMoveArrow(currentBestMoveUci);
+    if (currentBestMoveUci && currentMode === 'analysis') {
+      drawBestMoveArrow(currentBestMoveUci);
+    }
   });
 
   // Theme Toggle
@@ -378,6 +654,8 @@ $(document).ready(function() {
     const fen = document.getElementById('fenInput').value.trim();
     if (fen && game.load(fen)) {
       redoStack = [];
+      clearClickHighlights();
+      selectedSquare = null;
       board.position(game.fen());
       updateUI();
     } else {
@@ -400,6 +678,8 @@ $(document).ready(function() {
   document.getElementById('depthSlider').addEventListener('input', (e) => {
     targetDepth = parseInt(e.target.value, 10);
     document.getElementById('depthSliderVal').textContent = targetDepth;
-    analyzePosition();
+    if (currentMode === 'analysis') {
+      analyzePosition();
+    }
   });
 });

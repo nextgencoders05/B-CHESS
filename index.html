@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chess Analyzer Pro — Stockfish Engine & Eval Bar</title>
+  <title>Chess Analyzer Pro — Stockfish Engine & Play vs Bot</title>
   <!-- Chessboard.js CSS -->
   <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" />
   <link rel="stylesheet" href="style.css" />
@@ -16,7 +16,7 @@
         <span class="pawn-icon">♟</span>
         <div>
           <h1>Chess Analyzer Pro</h1>
-          <p>Stockfish Engine + Live Evaluation Bar + Best Move Arrow</p>
+          <p>Stockfish Engine • Click-to-Move • Play Against Bot Rating</p>
         </div>
       </div>
       <div class="theme-controls">
@@ -29,6 +29,38 @@
     <main class="main-grid">
       <!-- Left: Eval Bar + Chessboard Section -->
       <section class="board-card">
+        <!-- Game Mode Selection Banner -->
+        <div class="mode-bar">
+          <div class="mode-selector">
+            <span class="mode-label">Mode:</span>
+            <div class="mode-buttons">
+              <button id="modeAnalyzeBtn" class="mode-btn active">Free Analysis</button>
+              <button id="modeBotBtn" class="mode-btn">Play vs Bot</button>
+            </div>
+          </div>
+          <div id="botControls" class="bot-controls" style="display: none;">
+            <div class="bot-setting">
+              <label for="botRatingSelect">Bot Elo:</label>
+              <select id="botRatingSelect" class="styled-select">
+                <option value="800">800 (Beginner)</option>
+                <option value="1100">1100 (Casual)</option>
+                <option value="1400" selected>1400 (Intermediate)</option>
+                <option value="1700">1700 (Advanced)</option>
+                <option value="2000">2000 (Expert)</option>
+                <option value="2500">2500+ (Master / Stockfish Max)</option>
+              </select>
+            </div>
+            <div class="bot-setting">
+              <label for="botSideSelect">Play as:</label>
+              <select id="botSideSelect" class="styled-select">
+                <option value="w" selected>White</option>
+                <option value="b">Black</option>
+              </select>
+            </div>
+            <button id="startBotGameBtn" class="pill-btn bot-action-btn">New Game</button>
+          </div>
+        </div>
+
         <div class="board-and-eval">
           <!-- Live Vertical Evaluation Bar -->
           <div class="eval-bar-container" id="evalBarContainer" title="Live Stockfish Evaluation">
@@ -72,7 +104,7 @@
         <div id="analysisTab" class="tab-content active-content">
           <div class="panel-box best-move-box">
             <div class="best-move-header">
-              <span class="label">Best Move Suggestion</span>
+              <span class="label" id="panelPrimaryLabel">Best Move Suggestion</span>
               <span class="engine-badge" id="engineBadge">Stockfish Active</span>
             </div>
             <h2 id="bestMoveText">Calculating...</h2>
@@ -87,7 +119,7 @@
             </div>
             <div class="panel-box">
               <span class="label">Depth</span>
-              <div class="stat-val" id="depthVal">0 / 16</div>
+              <div class="stat-val" id="depthVal">0 / 15</div>
             </div>
             <div class="panel-box">
               <span class="label">Opening</span>

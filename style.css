@@ -73,6 +73,104 @@ body {
   background: #1b2e35;
 }
 
+/* Mode Bar (Analysis vs Play with Bot) */
+.mode-bar {
+  background: #121d23;
+  border: 1px solid #1e2d33;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mode-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mode-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.mode-btn {
+  background: #0d171b;
+  border: 1px solid #263840;
+  color: #94a3b8;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover {
+  border-color: #38bdf8;
+  color: #e2e8f0;
+}
+
+.mode-btn.active {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.bot-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #1e2d33;
+}
+
+.bot-setting {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.styled-select {
+  background: #0b1316;
+  border: 1px solid #263840;
+  color: #e2e8f0;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+}
+
+.styled-select:focus {
+  border-color: #38bdf8;
+}
+
+.bot-action-btn {
+  background: #059669;
+  border-color: #10b981;
+  color: #fff;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bot-action-btn:hover {
+  background: #10b981;
+}
+
 .main-grid {
   display: grid;
   grid-template-columns: 580px 1fr;
@@ -135,7 +233,6 @@ body {
   text-align: center;
   font-size: 10px;
   font-weight: 800;
-  color: #0f172a;
   z-index: 3;
   mix-blend-mode: difference;
   color: #fff;
@@ -165,13 +262,42 @@ body {
   z-index: 20;
 }
 
-/* Square Highlighting for Suggested Best Move */
+/* Square Highlighting for Suggested Best Move & Click-Move selection */
 .highlight-from {
   box-shadow: inset 0 0 0 4px rgba(56, 189, 248, 0.85) !important;
 }
 
 .highlight-to {
   box-shadow: inset 0 0 0 4px rgba(74, 222, 128, 0.9) !important;
+}
+
+/* Click-to-Move Selected Square & Legal Targets */
+.square-selected {
+  background-color: rgba(234, 179, 8, 0.55) !important;
+  box-shadow: inset 0 0 0 3px rgba(250, 204, 21, 0.9) !important;
+}
+
+.legal-dest-dot {
+  position: relative;
+}
+
+.legal-dest-dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24%;
+  height: 24%;
+  background-color: rgba(34, 197, 94, 0.7);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 0 4px rgba(0,0,0,0.4);
+}
+
+.legal-dest-capture {
+  box-shadow: inset 0 0 0 4px rgba(239, 68, 68, 0.85) !important;
 }
 
 /* Custom Board Colors (Green & White Default) */
